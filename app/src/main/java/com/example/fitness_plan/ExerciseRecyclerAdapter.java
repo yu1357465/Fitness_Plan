@@ -1,7 +1,9 @@
 package com.example.fitness_plan;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -16,8 +18,10 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
+
+// 【关键修改】引入 MaterialCardView
+import com.google.android.material.card.MaterialCardView;
 
 import com.example.fitness_plan.data.ExerciseEntity;
 import com.github.mikephil.charting.charts.LineChart;
@@ -41,6 +45,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
         void onStartDrag(RecyclerView.ViewHolder holder);
         void onRename(ExerciseEntity exercise);
         void onDelete(ExerciseEntity exercise);
+        void onTogglePin(ExerciseEntity exercise);
     }
 
     public ExerciseRecyclerAdapter(Context context, List<ExerciseEntity> list, boolean isLbsMode, OnItemActionListener listener) {
@@ -62,34 +67,51 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
         ExerciseEntity exercise = exerciseList.get(position);
 
         // ==========================================
-        //  1. 胶卷滑动复位 & 状态机
+        //  1. 状态复位
         // ==========================================
         holder.cardNormal.setTranslationX(0f);
         holder.cardNormal.setAlpha(1.0f);
-        holder.cardDelete.setTranslationX(0f);
-        holder.cardCompleted.setTranslationX(0f);
 
-        // 默认隐藏左右护法
+        // 恢复默认背景色
+        String colorHex = (exercise.color != null) ? exercise.color : "#FFFFFF";
+        try {
+            holder.cardNormal.setCardBackgroundColor(Color.parseColor(colorHex));
+        } catch (IllegalArgumentException e) {
+            holder.cardNormal.setCardBackgroundColor(Color.WHITE);
+            colorHex = "#FFFFFF";
+        }
+
+        // 图钉状态
+        boolean isPermanent = colorHex.equalsIgnoreCase("#FFFFFF");
+        if (isPermanent) {
+            holder.btnPin.setImageResource(android.R.drawable.ic_menu_save);
+            holder.btnPin.setColorFilter(context.getResources().getColor(R.color.flat_accent), PorterDuff.Mode.SRC_IN);
+        } else {
+            holder.btnPin.setImageResource(android.R.drawable.ic_menu_my_calendar);
+            holder.btnPin.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
+        }
+        holder.btnPin.setOnClickListener(v -> listener.onTogglePin(exercise));
+
+        // 左右滑动卡片显示
         holder.cardDelete.setVisibility(View.INVISIBLE);
         holder.cardCompleted.setVisibility(View.INVISIBLE);
 
-        // 如果处于删除模式，显示红卡
         if (exercise.isDeleteConfirmMode) {
             holder.cardDelete.setVisibility(View.VISIBLE);
             holder.cardNormal.setVisibility(View.INVISIBLE);
             holder.deleteClickArea.setOnClickListener(v -> listener.onDelete(exercise));
-            return; // 结束，不绑定正常数据
+            return;
         } else {
             holder.cardNormal.setVisibility(View.VISIBLE);
         }
 
         // ==========================================
-        //  2. 常规数据绑定
+        //  2. 数据绑定
         // ==========================================
         if (holder.weightWatcher != null) holder.weight.removeTextChangedListener(holder.weightWatcher);
 
         holder.name.setText(exercise.name);
-        holder.nameCompleted.setText(exercise.name); // 左侧完成卡的名字
+        holder.nameCompleted.setText(exercise.name);
         holder.sets.setText(String.valueOf(exercise.sets));
         holder.reps.setText(String.valueOf(exercise.reps));
         if (holder.unit != null) holder.unit.setText(isLbsMode ? "lbs" : "kg");
@@ -145,15 +167,11 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
     private void updateUIState(ViewHolder holder, ExerciseEntity exercise) {
         boolean isDone = exercise.isCompleted;
         float alpha = isDone ? 0.6f : 1.0f;
-
         holder.name.setAlpha(alpha);
         holder.weight.setAlpha(alpha);
         holder.layoutSets.setAlpha(alpha);
         holder.layoutReps.setAlpha(alpha);
-
-        // 注意：原先 layoutWeight 可能没用到，这里安全起见只处理内部元素
         if (holder.weight != null) holder.weight.setAlpha(alpha);
-
         setStrikeThrough(holder.name, isDone);
         setStrikeThrough(holder.weight, isDone);
         setStrikeThrough(holder.sets, isDone);
@@ -210,17 +228,15 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
     interface OnValueChangeListener { void onValueChange(int val); }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
-        // 胶卷滑动用的三张卡
-        CardView cardNormal;      // 中 (白)
-        CardView cardDelete;      // 右 (红)
-        CardView cardCompleted;   // 左 (灰)
+        // 【关键修改】类型改为 MaterialCardView
+        MaterialCardView cardNormal, cardDelete, cardCompleted;
 
         View deleteClickArea;
         TextView nameCompleted;
-
         TextView name, sets, reps, unit;
         LinearLayout layoutSets, layoutReps;
         EditText weight;
+        ImageView btnPin;
         View btnChart, chartContainer;
         LineChart chart;
         ImageView dragHandle;
@@ -228,11 +244,9 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
 
         ViewHolder(View itemView) {
             super(itemView);
-            // 绑定最外层的三张卡
             cardNormal = itemView.findViewById(R.id.cardNormal);
             cardDelete = itemView.findViewById(R.id.cardDelete);
             cardCompleted = itemView.findViewById(R.id.cardCompleted);
-
             deleteClickArea = itemView.findViewById(R.id.deleteClickArea);
             nameCompleted = itemView.findViewById(R.id.tvNameCompleted);
 
@@ -243,6 +257,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<ExerciseRecycl
             reps = itemView.findViewById(R.id.tvReps);
             unit = itemView.findViewById(R.id.tvUnit);
             weight = itemView.findViewById(R.id.etWeight);
+            btnPin = itemView.findViewById(R.id.btnPin);
             btnChart = itemView.findViewById(R.id.btnChart);
             chartContainer = itemView.findViewById(R.id.chartContainer);
             chart = itemView.findViewById(R.id.miniLineChart);

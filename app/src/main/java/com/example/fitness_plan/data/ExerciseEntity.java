@@ -32,19 +32,20 @@ public class ExerciseEntity {
     @ColumnInfo(name = "is_lbs")
     public boolean isLbs;
 
+    // 【新增】颜色字段 (存 Hex 颜色码，如 "#FFFFFF")
+    @ColumnInfo(name = "color")
+    public String color;
+
     // ==========================================
     //  内存标记字段 (不存数据库)
     // ==========================================
 
-    // 1. 用于【胶卷滑动】功能：标记是否显示红色删除卡
     @Ignore
     public boolean isDeleteConfirmMode = false;
 
-    // 2. 用于【图表展开】：标记是否显示折线图
     @Ignore
     public boolean isExpanded = false;
 
-    // 构造函数
     public ExerciseEntity(String name, double weight, int sets, int reps, boolean isCompleted) {
         this.name = name;
         this.weight = weight;
@@ -53,9 +54,9 @@ public class ExerciseEntity {
         this.isCompleted = isCompleted;
         this.sortOrder = 0;
         this.isLbs = false;
+        this.color = "#FFFFFF"; // 默认白色
     }
 
-    // 空构造函数
     @Ignore
     public ExerciseEntity() {
     }
