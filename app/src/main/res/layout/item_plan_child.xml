@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="32dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp"
+    android:gravity="center_vertical"
+    android:background="@android:color/white">
+
+    <TextView
+        android:id="@+id/tvDayName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="推力日"
+        android:textSize="16sp"
+        android:textColor="#666666"/>
+
+    <ImageView
+        android:id="@+id/btnEditDay"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_menu_edit"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="编辑"
+        android:tint="#FF9800"/>
+
+    <ImageView
+        android:id="@+id/btnCopyDay"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_menu_save"
+        android:contentDescription="复制"
+        android:tint="#2196F3"/>
+
+    <ImageView
+        android:id="@+id/btnDeleteDay"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_menu_delete"
+        android:contentDescription="删除"
+        android:tint="#F44336"
+        android:layout_marginStart="16dp"/>
+
+</LinearLayout>
