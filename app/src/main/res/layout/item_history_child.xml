@@ -3,16 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="4dp"
-    android:background="@color/flat_background"> <androidx.cardview.widget.CardView
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="0dp"
-    app:cardBackgroundColor="@color/flat_card_bg"
-    app:contentPadding="12dp">
+    android:padding="16dp"
+    android:background="?attr/selectableItemBackground">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -33,33 +25,26 @@
                 android:text="深蹲"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/flat_text_primary"/>
+                android:textColor="#333333"/>
 
             <TextView
-                android:id="@+id/tvHistoryDetails"
+                android:id="@+id/tvHistoryWorkoutTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="100kg x 5组 x 5次"
-                android:textSize="14sp"
-                android:textColor="@color/flat_text_secondary"
-                android:layout_marginTop="2dp"/>
+                android:text="经典三分化 - 推力日"
+                android:textSize="12sp"
+                android:textColor="#999999"
+                android:layout_marginTop="4dp"/>
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/btnEditHistory"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@android:drawable/ic_menu_edit"
-            android:padding="6dp"
-            android:layout_marginEnd="8dp"
-            app:tint="@color/flat_text_secondary"/>
+        <TextView
+            android:id="@+id/tvHistoryData"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="100kg x 5 x 5"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:gravity="end"/>
 
-        <ImageView
-            android:id="@+id/btnDeleteHistory"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@android:drawable/ic_menu_delete"
-            android:padding="6dp"
-            app:tint="#FF8A80"/> </LinearLayout>
-</androidx.cardview.widget.CardView>
+    </LinearLayout>
 </LinearLayout>

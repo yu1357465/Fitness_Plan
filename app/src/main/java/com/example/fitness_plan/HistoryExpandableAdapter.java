@@ -1,29 +1,27 @@
 package com.example.fitness_plan;
 
 import android.content.Context;
-import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseExpandableListAdapter;
 import android.widget.TextView;
 
-import androidx.core.content.ContextCompat; // 【新增】引入兼容库
-
 import com.example.fitness_plan.data.HistoryEntity;
 
 import java.text.SimpleDateFormat;
+import java.util.Date; // 【修复】补上了这个导入
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public class HistoryExpandableAdapter extends BaseExpandableListAdapter {
 
-    private Context context;
-    private List<Long> dateKeys;
-    private Map<Long, List<HistoryEntity>> groupedData;
-    private boolean isLbsMode;
-    private OnHistoryActionListener listener;
+    private final Context context;
+    private final List<Long> dateKeys;
+    private final Map<Long, List<HistoryEntity>> groupedData;
+    private final boolean isLbsMode;
+    private final OnHistoryActionListener listener;
 
     public interface OnHistoryActionListener {
         void onEditHistory(HistoryEntity history);
@@ -45,7 +43,9 @@ public class HistoryExpandableAdapter extends BaseExpandableListAdapter {
 
     @Override
     public int getChildrenCount(int groupPosition) {
-        return groupedData.get(dateKeys.get(groupPosition)).size();
+        long key = dateKeys.get(groupPosition);
+        List<HistoryEntity> list = groupedData.get(key);
+        return (list != null) ? list.size() : 0;
     }
 
     @Override
@@ -55,81 +55,95 @@ public class HistoryExpandableAdapter extends BaseExpandableListAdapter {
 
     @Override
     public Object getChild(int groupPosition, int childPosition) {
-        return groupedData.get(dateKeys.get(groupPosition)).get(childPosition);
+        long key = dateKeys.get(groupPosition);
+        return groupedData.get(key).get(childPosition);
     }
 
     @Override
     public long getGroupId(int groupPosition) {
-        return dateKeys.get(groupPosition);
+        return groupPosition;
     }
 
     @Override
     public long getChildId(int groupPosition, int childPosition) {
-        return groupedData.get(dateKeys.get(groupPosition)).get(childPosition).id;
+        return childPosition;
     }
 
     @Override
     public boolean hasStableIds() {
-        return true;
+        return false;
     }
 
+    // =========================================================
+    //  组视图 (Group View) - 只显示日期和统计
+    // =========================================================
     @Override
     public View getGroupView(int groupPosition, boolean isExpanded, View convertView, ViewGroup parent) {
         if (convertView == null) {
-            convertView = LayoutInflater.from(context).inflate(android.R.layout.simple_expandable_list_item_1, parent, false);
-            convertView.setPadding(60, 48, 40, 24);
-            // 【修复 1】使用 ContextCompat 获取颜色，消除过时警告
-            convertView.setBackgroundColor(ContextCompat.getColor(context, R.color.flat_background));
+            LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            // 确保这里引用的 layout 文件名和你创建的一致
+            convertView = inflater.inflate(R.layout.item_history_group, null);
         }
 
-        TextView tvTitle = convertView.findViewById(android.R.id.text1);
-        tvTitle.setTypeface(null, Typeface.BOLD);
-        tvTitle.setTextSize(18);
+        long dateKey = dateKeys.get(groupPosition);
+        List<HistoryEntity> dayList = groupedData.get(dateKey);
+        int itemCount = (dayList != null) ? dayList.size() : 0;
 
-        // 【修复 2】使用 ContextCompat 获取颜色
-        tvTitle.setTextColor(ContextCompat.getColor(context, R.color.flat_primary));
+        TextView tvDate = convertView.findViewById(R.id.tvHistoryGroupDate);
+        TextView tvSummary = convertView.findViewById(R.id.tvHistoryGroupSummary);
 
-        long dateMillis = (long) getGroup(groupPosition);
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault());
-        String dateStr = sdf.format(dateMillis);
+        // 格式化日期：2026年1月2日 星期五
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日 EEEE", Locale.getDefault());
+        String dateStr = sdf.format(new Date(dateKey)); // 这里现在能找到 Date 类了
 
-        String sessionTitle = "";
-        List<HistoryEntity> items = groupedData.get(dateMillis);
-        if (items != null && !items.isEmpty()) {
-            String title = items.get(0).workoutTitle;
-            if (title != null && !title.isEmpty()) {
-                sessionTitle = " - " + title;
-            }
+        tvDate.setText(dateStr);
+        if (tvSummary != null) {
+            tvSummary.setText("共完成 " + itemCount + " 个动作");
         }
-
-        tvTitle.setText(dateStr + sessionTitle);
 
         return convertView;
     }
 
+    // =========================================================
+    //  子视图 (Child View) - 显示动作详情 + 具体计划名
+    // =========================================================
     @Override
     public View getChildView(int groupPosition, int childPosition, boolean isLastChild, View convertView, ViewGroup parent) {
-        if (convertView == null) {
-            convertView = LayoutInflater.from(context).inflate(R.layout.item_history_child, parent, false);
-        }
-
         HistoryEntity item = (HistoryEntity) getChild(groupPosition, childPosition);
 
-        TextView tvName = convertView.findViewById(R.id.tvHistoryName);
-        TextView tvDetails = convertView.findViewById(R.id.tvHistoryDetails);
-        android.widget.ImageView btnEdit = convertView.findViewById(R.id.btnEditHistory);
-        android.widget.ImageView btnDelete = convertView.findViewById(R.id.btnDeleteHistory);
+        if (convertView == null) {
+            LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            convertView = inflater.inflate(R.layout.item_history_child, null);
+        }
 
+        // 1. 动作名称
+        TextView tvName = convertView.findViewById(R.id.tvHistoryName);
         tvName.setText(item.name);
 
-        double displayWeight = isLbsMode ? (item.weight * 2.20462) : item.weight;
-        String wStr = (displayWeight % 1 == 0) ? String.valueOf((int) displayWeight) : String.format(Locale.getDefault(), "%.1f", displayWeight);
-        String unit = isLbsMode ? "lbs" : "kg";
+        // 2. 数据 (重量/组数)
+        TextView tvData = convertView.findViewById(R.id.tvHistoryData);
+        String weightStr = isLbsMode ? String.format(Locale.getDefault(), "%.1f lbs", item.weight * 2.20462) : String.format(Locale.getDefault(), "%.1f kg", item.weight);
+        tvData.setText(weightStr + " × " + item.sets + "组 × " + item.reps + "次");
 
-        tvDetails.setText(String.format(Locale.getDefault(), "%s %s x %d 组 x %d 次", wStr, unit, item.sets, item.reps));
+        // 3. 计划/训练日标题 (从数据库里的 workoutTitle 获取)
+        TextView tvWorkoutTitle = convertView.findViewById(R.id.tvHistoryWorkoutTitle);
+        if (item.workoutTitle != null && !item.workoutTitle.isEmpty()) {
+            tvWorkoutTitle.setVisibility(View.VISIBLE);
+            tvWorkoutTitle.setText(item.workoutTitle);
+        } else {
+            tvWorkoutTitle.setText("自由训练");
+            // 或者 tvWorkoutTitle.setVisibility(View.GONE);
+        }
 
-        btnEdit.setOnClickListener(v -> listener.onEditHistory(item));
-        btnDelete.setOnClickListener(v -> listener.onDeleteHistory(item));
+        // 4. 点击事件
+        convertView.setOnClickListener(v -> {
+            if (listener != null) listener.onEditHistory(item);
+        });
+
+        convertView.setOnLongClickListener(v -> {
+            if (listener != null) listener.onDeleteHistory(item);
+            return true;
+        });
 
         return convertView;
     }

@@ -4,8 +4,8 @@ import android.app.DatePickerDialog;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
-import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ExpandableListView;
 import android.widget.LinearLayout;
@@ -18,11 +18,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.HistoryEntity;
 import com.example.fitness_plan.data.WorkoutDao;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +38,7 @@ public class HistoryActivity extends AppCompatActivity {
     private ExpandableListView expandableListView;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    // 全局单位状态
+    private List<Long> dateKeys = new ArrayList<>();
     private boolean isLbsMode = false;
 
     @Override
@@ -44,11 +46,10 @@ public class HistoryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
 
-        // 1. 获取数据库
+        // 初始化数据库
         AppDatabase db = AppDatabase.getDatabase(this);
         workoutDao = db.workoutDao();
 
-        // 2. 读取全局单位设置
         SharedPreferences prefs = getSharedPreferences("fitness_prefs", MODE_PRIVATE);
         isLbsMode = prefs.getBoolean("DEFAULT_IS_LBS", false);
 
@@ -57,14 +58,57 @@ public class HistoryActivity extends AppCompatActivity {
         // 加载数据
         loadHistoryData();
 
-        // 添加按钮
+        // 1. 绑定添加按钮
         FloatingActionButton fab = findViewById(R.id.fabAddHistory);
         fab.setOnClickListener(v -> showAddHistoryDialog());
+
+        // 2. 【关键新增】绑定右上角的日历查找按钮
+        // 替代了原来的 Menu
+        View btnSearch = findViewById(R.id.btnCalendarSearch);
+        btnSearch.setOnClickListener(v -> showDatePickerAndScroll());
+    }
+
+    // 原来的 onCreateOptionsMenu 和 onOptionsItemSelected 删除了，
+    // 因为我们现在用 XML 里的 ImageView 直接控制，更稳定。
+
+    // 日期跳转逻辑
+    private void showDatePickerAndScroll() {
+        if (dateKeys.isEmpty()) {
+            Toast.makeText(this, "暂无记录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Calendar cal = Calendar.getInstance();
+        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            Calendar target = Calendar.getInstance();
+            target.set(year, month, dayOfMonth, 0, 0, 0);
+            target.set(Calendar.MILLISECOND, 0);
+            long targetTime = target.getTimeInMillis();
+
+            // 倒序查找最近的记录
+            int targetIndex = -1;
+            for (int i = 0; i < dateKeys.size(); i++) {
+                // 找到第一个早于或等于选中日期的记录（因为是倒序）
+                if (dateKeys.get(i) <= targetTime + 86400000L) {
+                    targetIndex = i;
+                    break;
+                }
+            }
+
+            if (targetIndex != -1) {
+                expandableListView.setSelectedGroup(targetIndex);
+                Toast.makeText(this, "已跳转至附近记录", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "未找到该日期之前的记录", Toast.LENGTH_SHORT).show();
+            }
+
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
     }
 
     // ==========================================
-    //  添加历史记录对话框
+    //  下方代码保持不变 (添加、编辑、删除、加载数据)
     // ==========================================
+
     private void showAddHistoryDialog() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -91,11 +135,10 @@ public class HistoryActivity extends AppCompatActivity {
         layout.addView(etReps);
 
         final EditText etTitle = new EditText(this);
-        etTitle.setHint("训练标题 (如: 推力日)");
+        etTitle.setHint("训练标题 (如: 经典三分化 - 推力日)");
         layout.addView(etTitle);
 
-        // 日期选择
-        final android.widget.Button btnDate = new android.widget.Button(this);
+        final Button btnDate = new Button(this);
         final Calendar calendar = Calendar.getInstance();
         updateDateButton(btnDate, calendar);
         btnDate.setOnClickListener(v -> {
@@ -128,18 +171,8 @@ public class HistoryActivity extends AppCompatActivity {
                         int r = rStr.isEmpty() ? 0 : Integer.parseInt(rStr);
                         String finalTitle = titleInput.isEmpty() ? "手动补录" : titleInput;
 
-                        // 使用构造函数 1
-                        HistoryEntity newItem = new HistoryEntity(
-                                calendar.getTimeInMillis(),
-                                name,
-                                dbWeight,
-                                s,
-                                r,
-                                isLbsMode
-                        );
-                        // 【修正】使用 workoutTitle
+                        HistoryEntity newItem = new HistoryEntity(calendar.getTimeInMillis(), name, dbWeight, s, r, isLbsMode);
                         newItem.workoutTitle = finalTitle;
-
                         workoutDao.insertHistory(newItem);
                         loadHistoryData();
                     });
@@ -148,31 +181,28 @@ public class HistoryActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void updateDateButton(android.widget.Button btn, Calendar cal) {
+    private void updateDateButton(Button btn, Calendar cal) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         btn.setText("日期: " + sdf.format(cal.getTime()));
     }
 
-    // ==========================================
-    //  加载数据 (含日期分组逻辑)
-    // ==========================================
     private void loadHistoryData() {
         executorService.execute(() -> {
             List<HistoryEntity> rawList = workoutDao.getAllHistory();
 
-            // 使用 Map 进行分组：Key 是当天 00:00 的时间戳
             Map<Long, List<HistoryEntity>> groupedData = new LinkedHashMap<>();
-            List<Long> dateKeys = new ArrayList<>();
+            dateKeys = new ArrayList<>();
 
             for (HistoryEntity item : rawList) {
                 long dayTimestamp = getStartOfDay(item.date);
-
                 if (!groupedData.containsKey(dayTimestamp)) {
                     groupedData.put(dayTimestamp, new ArrayList<>());
                     dateKeys.add(dayTimestamp);
                 }
                 groupedData.get(dayTimestamp).add(item);
             }
+
+            Collections.sort(dateKeys, (t1, t2) -> Long.compare(t2, t1));
 
             runOnUiThread(() -> {
                 HistoryExpandableAdapter adapter = new HistoryExpandableAdapter(
@@ -182,23 +212,17 @@ public class HistoryActivity extends AppCompatActivity {
                         isLbsMode,
                         new HistoryExpandableAdapter.OnHistoryActionListener() {
                             @Override
-                            public void onEditHistory(HistoryEntity history) {
-                                showEditDialog(history);
-                            }
+                            public void onEditHistory(HistoryEntity history) { showEditHistoryDialog(history); }
                             @Override
-                            public void onDeleteHistory(HistoryEntity history) {
-                                showDeleteDialog(history);
-                            }
+                            public void onDeleteHistory(HistoryEntity history) { showDeleteDialog(history); }
                         }
                 );
                 expandableListView.setAdapter(adapter);
-                // 默认展开第一个组
                 if (!dateKeys.isEmpty()) expandableListView.expandGroup(0);
             });
         });
     }
 
-    // 辅助：获取某天开始的时间戳
     private long getStartOfDay(long time) {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(time);
@@ -209,92 +233,68 @@ public class HistoryActivity extends AppCompatActivity {
         return cal.getTimeInMillis();
     }
 
-    // ==========================================
-    //  编辑对话框
-    // ==========================================
-    private void showEditDialog(HistoryEntity history) {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 40, 50, 10);
+    private void showEditHistoryDialog(HistoryEntity historyItem) {
+        BottomSheetDialog sheet = new BottomSheetDialog(this, com.google.android.material.R.style.Theme_Design_BottomSheetDialog);
+        View view = getLayoutInflater().inflate(R.layout.dialog_bottom_sheet_history_edit, null);
+        sheet.setContentView(view);
+        if (sheet.getWindow() != null) sheet.getWindow().setDimAmount(0.3f);
 
-        // 1. 标题
-        TextView labelTitle = new TextView(this);
-        labelTitle.setText("训练日标题");
-        layout.addView(labelTitle);
-        final EditText etTitle = new EditText(this);
-        // 【修正】使用 workoutTitle
-        etTitle.setText(history.workoutTitle == null ? "自由训练" : history.workoutTitle);
-        layout.addView(etTitle);
+        EditText etName = view.findViewById(R.id.etEditName);
+        EditText etWeight = view.findViewById(R.id.etEditWeight);
+        EditText etSets = view.findViewById(R.id.etEditSets);
+        EditText etReps = view.findViewById(R.id.etEditReps);
+        EditText etPlan = view.findViewById(R.id.etEditPlanName);
+        EditText etDay = view.findViewById(R.id.etEditDayTitle);
+        Button btnSave = view.findViewById(R.id.btnSaveHistory);
 
-        // 2. 重量
-        TextView labelWeight = new TextView(this);
-        labelWeight.setText(isLbsMode ? "重量 (lbs)" : "重量 (kg)");
-        layout.addView(labelWeight);
-        final EditText etWeight = new EditText(this);
-        etWeight.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        etName.setText(historyItem.name);
+        double displayWeight = isLbsMode ? (historyItem.weight * 2.20462) : historyItem.weight;
+        etWeight.setText(String.format(Locale.getDefault(), "%.1f", displayWeight));
+        etSets.setText(String.valueOf(historyItem.sets));
+        etReps.setText(String.valueOf(historyItem.reps));
 
-        double displayWeight = isLbsMode ? (history.weight * 2.20462) : history.weight;
-        String wStr = (displayWeight % 1 == 0) ? String.valueOf((int) displayWeight) : String.format(Locale.getDefault(), "%.1f", displayWeight);
-        etWeight.setText(wStr);
-        layout.addView(etWeight);
+        String fullTitle = historyItem.workoutTitle;
+        if (fullTitle != null && fullTitle.contains(" - ")) {
+            String[] parts = fullTitle.split(" - ", 2);
+            etPlan.setText(parts[0]);
+            etDay.setText(parts.length > 1 ? parts[1] : "");
+        } else {
+            etPlan.setText("");
+            etDay.setText(fullTitle == null ? "自由训练" : fullTitle);
+        }
 
-        // 3. 组数
-        TextView labelSets = new TextView(this);
-        labelSets.setText("组数");
-        layout.addView(labelSets);
-        final EditText etSets = new EditText(this);
-        etSets.setInputType(InputType.TYPE_CLASS_NUMBER);
-        etSets.setText(String.valueOf(history.sets));
-        layout.addView(etSets);
+        btnSave.setOnClickListener(v -> {
+            String newName = etName.getText().toString().trim();
+            String newPlan = etPlan.getText().toString().trim();
+            String newDay = etDay.getText().toString().trim();
 
-        // 4. 次数
-        TextView labelReps = new TextView(this);
-        labelReps.setText("次数");
-        layout.addView(labelReps);
-        final EditText etReps = new EditText(this);
-        etReps.setInputType(InputType.TYPE_CLASS_NUMBER);
-        etReps.setText(String.valueOf(history.reps));
-        layout.addView(etReps);
+            if (newName.isEmpty()) return;
 
-        new AlertDialog.Builder(this)
-                // 【修正】使用 name
-                .setTitle("修改: " + history.name)
-                .setView(layout)
-                .setPositiveButton("保存", (dialog, which) -> {
-                    try {
-                        String tInput = etTitle.getText().toString().trim();
-                        String wInput = etWeight.getText().toString();
-                        String sInput = etSets.getText().toString();
-                        String rInput = etReps.getText().toString();
+            try {
+                historyItem.name = newName;
+                double inputW = Double.parseDouble(etWeight.getText().toString());
+                historyItem.weight = isLbsMode ? (inputW / 2.20462) : inputW;
+                historyItem.sets = Integer.parseInt(etSets.getText().toString());
+                historyItem.reps = Integer.parseInt(etReps.getText().toString());
+                if (!newPlan.isEmpty()) historyItem.workoutTitle = newPlan + " - " + newDay;
+                else historyItem.workoutTitle = newDay;
 
-                        if (wInput.isEmpty() || sInput.isEmpty() || rInput.isEmpty()) return;
-
-                        double inputW = Double.parseDouble(wInput);
-                        int s = Integer.parseInt(sInput);
-                        int r = Integer.parseInt(rInput);
-
-                        // 【修正】使用 workoutTitle
-                        history.workoutTitle = tInput.isEmpty() ? "自由训练" : tInput;
-                        history.weight = isLbsMode ? (inputW / 2.20462) : inputW;
-                        history.sets = s;
-                        history.reps = r;
-
-                        executorService.execute(() -> {
-                            workoutDao.updateHistory(history);
-                            loadHistoryData();
-                        });
-                    } catch (NumberFormatException e) {
-                        Toast.makeText(this, "无效输入", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .show();
+                executorService.execute(() -> {
+                    workoutDao.updateHistory(historyItem);
+                    loadHistoryData();
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "修改已保存", Toast.LENGTH_SHORT).show();
+                        sheet.dismiss();
+                    });
+                });
+            } catch (NumberFormatException ignored) {}
+        });
+        sheet.show();
     }
 
     private void showDeleteDialog(HistoryEntity history) {
         new AlertDialog.Builder(this)
                 .setTitle("删除记录")
-                // 【修正】使用 name
                 .setMessage("确定删除 " + history.name + " 吗？")
                 .setPositiveButton("删除", (dialog, which) -> {
                     executorService.execute(() -> {
