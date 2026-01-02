@@ -2,8 +2,13 @@ package com.example.fitness_plan.utils;
 
 import android.content.Context;
 import android.net.Uri;
-import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ParcelFileDescriptor;
+import android.widget.Toast;
 
+import com.example.fitness_plan.data.AppDatabase;
+import com.example.fitness_plan.data.ExerciseEntity;
 import com.example.fitness_plan.data.HistoryEntity;
 import com.example.fitness_plan.data.PlanEntity;
 import com.example.fitness_plan.data.TemplateEntity;
@@ -11,151 +16,145 @@ import com.example.fitness_plan.data.WorkoutDao;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class UnifiedBackupUtils {
 
-    private static final String CONFIG_MARKER = "#APP_CONFIG_JSON:";
+    private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    private static class ConfigData {
+    public interface OnCompleteListener {
+        void onComplete(boolean success, String message);
+    }
+
+    // 数据包结构 (保持 public 以防 Gson 权限问题)
+    public static class BackupData {
+        long version;
+        long timestamp;
+        List<ExerciseEntity> exercises;
         List<PlanEntity> plans;
         List<TemplateEntity> templates;
+        List<HistoryEntity> history;
     }
 
-    // 导出功能
-    public static boolean exportUnifiedData(Context context, Uri uri, WorkoutDao dao) {
-        try {
-            StringBuilder sb = new StringBuilder();
-            sb.append("动作名称,重量(kg),组数,次数,日期,所属计划\n");
+    // ==========================================
+    //  1. 备份：写入到用户指定的 Uri (不再负责创建文件，只负责写)
+    // ==========================================
+    public static void writeBackupToUri(Context context, Uri uri, OnCompleteListener listener) {
+        executor.execute(() -> {
+            boolean success = false;
+            String msg = "";
+            try {
+                AppDatabase db = AppDatabase.getDatabase(context);
+                WorkoutDao dao = db.workoutDao();
 
-            List<HistoryEntity> historyList = dao.getAllHistory();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+                // 1. 打包数据
+                BackupData data = new BackupData();
+                data.version = 1;
+                data.timestamp = System.currentTimeMillis();
+                data.exercises = dao.getAllExercises();
+                data.plans = dao.getAllPlans();
+                data.templates = dao.getAllTemplates();
+                data.history = dao.getAllHistory();
 
-            for (HistoryEntity h : historyList) {
-                // 处理名称中的逗号
-                String safeName = h.name.contains(",") ? "\"" + h.name + "\"" : h.name;
-                String dateStr = sdf.format(new Date(h.date));
+                // 2. 转 JSON
+                String json = new Gson().toJson(data);
 
-                // 【关键修复】现在 HistoryEntity 里有 workoutTitle 了，这里就不会报错了
-                String title = (h.workoutTitle == null) ? "" : h.workoutTitle;
-                String safeTitle = title.contains(",") ? "\"" + title + "\"" : title;
-
-                sb.append(String.format(Locale.getDefault(), "%s,%.2f,%d,%d,%s,%s\n",
-                        safeName, h.weight, h.sets, h.reps, dateStr, safeTitle));
-            }
-
-            ConfigData config = new ConfigData();
-            config.plans = dao.getAllPlans();
-            config.templates = dao.getAllTemplates();
-
-            Gson gson = new Gson();
-            String jsonConfig = gson.toJson(config);
-
-            sb.append("\n").append(CONFIG_MARKER).append(jsonConfig);
-
-            try (OutputStream os = context.getContentResolver().openOutputStream(uri)) {
-                if (os != null) {
-                    os.write(sb.toString().getBytes(StandardCharsets.UTF_8));
-                    return true;
+                // 3. 写入 Uri (使用 ParcelFileDescriptor 更加稳健)
+                try (ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(uri, "w");
+                     FileOutputStream fos = new FileOutputStream(pfd.getFileDescriptor())) {
+                    // 如果文件里有旧内容，先截断
+                    fos.getChannel().truncate(0);
+                    fos.write(json.getBytes());
                 }
+
+                success = true;
+                msg = "备份成功";
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                msg = "备份失败: " + e.getMessage();
             }
-        } catch (Exception e) {
-            Log.e("UnifiedBackup", "Export failed", e);
-        }
-        return false;
+
+            boolean finalSuccess = success;
+            String finalMsg = msg;
+            mainHandler.post(() -> {
+                if (listener != null) listener.onComplete(finalSuccess, finalMsg);
+            });
+        });
     }
 
-    // 导入功能
-    public static boolean importUnifiedData(Context context, Uri uri, WorkoutDao dao) {
-        try {
-            InputStream is = context.getContentResolver().openInputStream(uri);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+    // ==========================================
+    //  2. 恢复：从用户指定的 Uri 读取
+    // ==========================================
+    public static void restoreFromUri(Context context, Uri uri, OnCompleteListener listener) {
+        executor.execute(() -> {
+            boolean success = false;
+            String msg = "";
+            try {
+                String json = readTextFromUri(context, uri);
+                BackupData data = new Gson().fromJson(json, BackupData.class);
 
+                if (data != null) {
+                    AppDatabase db = AppDatabase.getDatabase(context);
+                    WorkoutDao dao = db.workoutDao();
+
+                    // 清空旧数据 (整机恢复逻辑)
+                    dao.clearAllExercises();
+                    dao.deactivateAllPlans();
+
+                    List<PlanEntity> oldPlans = dao.getAllPlans();
+                    for(PlanEntity p : oldPlans) {
+                        dao.deleteTemplatesByPlanId(p.planId);
+                        dao.deletePlan(p);
+                    }
+
+                    // 写入新数据
+                    if (data.plans != null) {
+                        for (PlanEntity p : data.plans) dao.insertPlan(p);
+                    }
+                    if (data.templates != null) {
+                        for (TemplateEntity t : data.templates) dao.insertTemplate(t);
+                    }
+                    if (data.history != null) {
+                        for (HistoryEntity h : data.history) dao.insertHistory(h);
+                    }
+                    if (data.exercises != null) {
+                        for (ExerciseEntity e : data.exercises) dao.insert(e);
+                    }
+                    success = true;
+                    msg = "恢复成功";
+                } else {
+                    msg = "文件格式错误";
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                msg = "恢复失败: " + e.getMessage();
+            }
+
+            boolean finalSuccess = success;
+            String finalMsg = msg;
+            mainHandler.post(() -> {
+                if (listener != null) listener.onComplete(finalSuccess, finalMsg);
+            });
+        });
+    }
+
+    private static String readTextFromUri(Context context, Uri uri) throws IOException {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             String line;
-            Gson gson = new Gson();
-            int successCount = 0;
-            boolean configRestored = false;
-            Map<Integer, Integer> planIdMap = new HashMap<>();
-
             while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (line.isEmpty()) continue;
-
-                // 1. 解析配置
-                if (line.startsWith(CONFIG_MARKER)) {
-                    try {
-                        String jsonStr = line.substring(CONFIG_MARKER.length());
-                        ConfigData config = gson.fromJson(jsonStr, ConfigData.class);
-
-                        if (config.plans != null) {
-                            dao.deactivateAllPlans();
-                            for (PlanEntity oldPlan : config.plans) {
-                                int oldId = oldPlan.planId;
-                                PlanEntity newPlan = new PlanEntity(oldPlan.planName, oldPlan.isActive);
-                                long newId = dao.insertPlan(newPlan);
-                                planIdMap.put(oldId, (int) newId);
-                            }
-                        }
-                        if (config.templates != null) {
-                            for (TemplateEntity temp : config.templates) {
-                                Integer newPlanId = planIdMap.get(temp.planId);
-                                if (newPlanId != null) {
-                                    TemplateEntity newTemp = new TemplateEntity(
-                                            newPlanId, temp.dayName, temp.dayIndex,
-                                            temp.exerciseName, temp.defaultWeight,
-                                            temp.defaultSets, temp.defaultReps
-                                    );
-                                    dao.insertTemplate(newTemp);
-                                }
-                            }
-                        }
-                        configRestored = true;
-                    } catch (Exception e) {
-                        Log.e("Import", "Config error", e);
-                    }
-                    continue;
-                }
-
-                if (line.startsWith("动作名称") || line.startsWith("Name")) continue;
-
-                // 2. 解析 CSV 历史
-                try {
-                    String[] parts = line.split(",");
-                    if (parts.length >= 5) {
-                        String name = parts[0].replace("\"", "");
-                        double weight = Double.parseDouble(parts[1]);
-                        int sets = Integer.parseInt(parts[2]);
-                        int reps = Integer.parseInt(parts[3]);
-
-                        long dateLong = System.currentTimeMillis();
-                        try {
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
-                            Date d = sdf.parse(parts[4]);
-                            if (d != null) dateLong = d.getTime();
-                        } catch (Exception ignored) {}
-
-                        // 【关键】读取最后一列的 workoutTitle
-                        String title = (parts.length > 5) ? parts[5].replace("\"", "") : "导入记录";
-
-                        // 这里的构造函数必须对应 HistoryEntity 的新构造函数
-                        HistoryEntity history = new HistoryEntity(name, weight, reps, sets, dateLong, title);
-                        dao.insertHistory(history);
-                        successCount++;
-                    }
-                } catch (Exception ignored) {}
+                stringBuilder.append(line);
             }
-            return successCount > 0 || configRestored;
-        } catch (Exception e) {
-            return false;
         }
+        return stringBuilder.toString();
     }
 }
