@@ -10,11 +10,24 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="编辑记录"
+        android:text="补录记录"
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="#333333"
         android:layout_marginBottom="20dp"/>
+
+    <Button
+        android:id="@+id/btnAddDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="日期: 2026-01-01"
+        android:textColor="#333333"
+        android:backgroundTint="#F5F5F5"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        app:icon="@android:drawable/ic_menu_my_calendar"
+        app:iconTint="#4DB6AC"
+        android:gravity="start|center_vertical"
+        android:layout_marginBottom="16dp"/>
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
@@ -24,10 +37,9 @@
         app:boxStrokeColor="#4DB6AC"
         android:layout_marginBottom="12dp">
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etEditPlanName"
+            android:id="@+id/etAddPlanName"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="15sp"/>
+            android:layout_height="wrap_content"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -38,21 +50,20 @@
         app:boxStrokeColor="#4DB6AC"
         android:layout_marginBottom="12dp">
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etEditDayTitle"
+            android:id="@+id/etAddDayTitle"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="15sp"/>
+            android:layout_height="wrap_content"/>
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="动作名称"
+        android:hint="动作名称 (必填)"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         app:boxStrokeColor="#4DB6AC"
         android:layout_marginBottom="12dp">
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etEditName"
+            android:id="@+id/etAddName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textStyle="bold"/>
@@ -66,6 +77,7 @@
         android:layout_marginBottom="24dp">
 
         <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutAddWeight"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1.2"
@@ -74,7 +86,7 @@
             app:boxStrokeColor="#4DB6AC"
             android:layout_marginEnd="8dp">
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEditWeight"
+                android:id="@+id/etAddWeight"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="numberDecimal"/>
@@ -89,7 +101,7 @@
             app:boxStrokeColor="#4DB6AC"
             android:layout_marginEnd="8dp">
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEditSets"
+                android:id="@+id/etAddSets"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="number"/>
@@ -103,7 +115,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             app:boxStrokeColor="#4DB6AC">
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEditReps"
+                android:id="@+id/etAddReps"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="number"/>
@@ -111,10 +123,10 @@
     </LinearLayout>
 
     <Button
-        android:id="@+id/btnSaveHistory"
+        android:id="@+id/btnAddConfirm"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:text="保存修改"
+        android:text="添加记录"
         android:textStyle="bold"
         android:textSize="16sp"
         android:backgroundTint="#4DB6AC"

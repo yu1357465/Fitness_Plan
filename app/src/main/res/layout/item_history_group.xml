@@ -4,15 +4,9 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="12dp"
-    android:background="#E0F2F1">
-    <View
-        android:layout_width="4dp"
-        android:layout_height="16dp"
-        android:background="#4DB6AC"
-        android:layout_marginEnd="8dp"/>
-
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="14dp"
+    android:background="#B2DFDB">
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -23,25 +17,24 @@
             android:id="@+id/tvHistoryGroupDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="2026年1月2日 星期五"
-            android:textSize="16sp"
+            android:text="2026年1月2日"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="#00695C"/>
+            android:textColor="#004D40"/>
         <TextView
             android:id="@+id/tvHistoryGroupSummary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="共完成 5 个动作"
+            android:text="5 个动作"
             android:textSize="12sp"
-            android:textColor="#555555"
+            android:textColor="#00695C"
             android:layout_marginTop="2dp"/>
     </LinearLayout>
 
     <ImageView
+        android:id="@+id/ivGroupIndicator"
         android:layout_width="24dp"
         android:layout_height="24dp"
         android:src="@android:drawable/arrow_down_float"
-        android:tint="#00695C"
-        android:alpha="0.5"/>
-
+        android:tint="#004D40"/>
 </LinearLayout>

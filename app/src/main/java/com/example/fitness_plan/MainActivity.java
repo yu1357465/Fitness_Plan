@@ -280,7 +280,7 @@ public class MainActivity extends AppCompatActivity {
         // 【新增】调节背景变暗程度 (0.0 - 1.0)
         // 0.3f 比较柔和，不会让眼睛不适
         if (bottomSheetDialog.getWindow() != null) {
-            bottomSheetDialog.getWindow().setDimAmount(0.1f);
+            bottomSheetDialog.getWindow().setDimAmount(0.0f);
         }
 
         android.widget.EditText etInput = view.findViewById(R.id.etRenameInput);
