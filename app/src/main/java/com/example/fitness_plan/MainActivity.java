@@ -651,18 +651,75 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(() -> Toast.makeText(MainActivity.this, "训练完成！已存档", Toast.LENGTH_SHORT).show());
     }
 
+    // =========================================================
+    //  【最终优化版】拖拽排序逻辑
+    //  1. 彻底禁用了左右滑动 (Flag = 0)
+    //  2. 完美保留了拖拽时的视觉特效 (变绿、变大)
+    // =========================================================
     private void setupItemTouchHelper() {
         itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.Callback() {
-            @Override public int getMovementFlags(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) { return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT); }
-            @Override public void onSelectedChanged(@androidx.annotation.Nullable RecyclerView.ViewHolder viewHolder, int actionState) { super.onSelectedChanged(viewHolder, actionState); if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) { ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder;
-                clearGhostCard();
-                holder.cardNormal.setCardElevation(0f); holder.cardNormal.setStrokeColor(Color.parseColor("#4DB6AC")); holder.cardNormal.setStrokeWidth(12); holder.itemView.setScaleX(1.03f); holder.itemView.setScaleY(1.03f); } }
-            @Override public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) { super.clearView(recyclerView, viewHolder); if (viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) { ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder; holder.cardNormal.setTranslationX(0f); holder.cardDelete.setTranslationX(0f); holder.cardCompleted.setTranslationX(0f); holder.cardNormal.setCardElevation(0f); holder.cardNormal.setStrokeColor(getResources().getColor(R.color.flat_divider)); holder.cardNormal.setStrokeWidth(1); holder.itemView.setScaleX(1.0f); holder.itemView.setScaleY(1.0f); } }
-            @Override public float getSwipeThreshold(@NonNull RecyclerView.ViewHolder viewHolder) { return 0.3f; }
-            @Override public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder source, @NonNull RecyclerView.ViewHolder target) { if (adapter != null) { adapter.onItemMove(source.getAdapterPosition(), target.getAdapterPosition()); return true; } return false; }
-            @Override public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) { int position = viewHolder.getAdapterPosition(); ExerciseEntity item = adapter.getItem(position); if (item == null) return; if (direction == ItemTouchHelper.LEFT) item.isDeleteConfirmMode = true; else if (direction == ItemTouchHelper.RIGHT) { if (item.isDeleteConfirmMode) item.isDeleteConfirmMode = false; else { item.isCompleted = !item.isCompleted; executorService.execute(() -> workoutDao.update(item)); } } adapter.notifyItemChanged(position); }
-            @Override public boolean isLongPressDragEnabled() { return false; }
-            @Override public void onChildDraw(@NonNull android.graphics.Canvas c, @NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) { if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) { if (viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) { ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder; float width = holder.itemView.getWidth(); holder.cardNormal.setTranslationX(dX); if (dX < 0) { holder.cardDelete.setVisibility(View.VISIBLE); holder.cardCompleted.setVisibility(View.INVISIBLE); holder.cardDelete.setTranslationX(width + dX); } else if (dX > 0) { holder.cardCompleted.setVisibility(View.VISIBLE); holder.cardDelete.setVisibility(View.INVISIBLE); holder.cardCompleted.setTranslationX(dX - width); } return; } } super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive); }
+
+            // 1. 定义动作方向
+            @Override
+            public int getMovementFlags(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+                // UP | DOWN : 允许上下拖拽
+                // 0 : 禁止左右滑动 (性能最高，系统直接忽略横向操作)
+                return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0);
+            }
+
+            // 2. 状态改变回调 (这是边缘变色的关键！)
+            @Override
+            public void onSelectedChanged(@androidx.annotation.Nullable RecyclerView.ViewHolder viewHolder, int actionState) {
+                super.onSelectedChanged(viewHolder, actionState);
+
+                // 只有在 "正在拖拽" (ACTION_STATE_DRAG) 时才触发特效
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) {
+                    ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder;
+
+                    // A. 清理可能存在的幽灵卡
+                    clearGhostCard();
+
+                    // B. 施加视觉特效 (你想要的功能就在这)
+                    holder.cardNormal.setStrokeColor(Color.parseColor("#4DB6AC")); // 边框变绿
+                    holder.cardNormal.setStrokeWidth(10); // 边框变粗 (6px 比较精致,10px 比较明显)
+                    holder.itemView.setScaleX(1.02f); // 轻微放大
+                    holder.itemView.setScaleY(1.02f);
+                    holder.itemView.setAlpha(0.9f);   // 轻微透明，增加浮动感
+                }
+            }
+
+            // 3. 动作结束回调 (松手恢复)
+            @Override
+            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+                super.clearView(recyclerView, viewHolder);
+
+                if (viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) {
+                    ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder;
+
+                    // 恢复原状
+                    holder.cardNormal.setStrokeWidth(0); // 去掉边框
+                    holder.cardNormal.setStrokeColor(Color.TRANSPARENT);
+                    holder.itemView.setScaleX(1.0f);
+                    holder.itemView.setScaleY(1.0f);
+                    holder.itemView.setAlpha(1.0f);
+                }
+            }
+
+            // 4. 处理拖拽位置交换
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder source, @NonNull RecyclerView.ViewHolder target) {
+                if (adapter != null) {
+                    adapter.onItemMove(source.getAdapterPosition(), target.getAdapterPosition());
+                    return true;
+                }
+                return false;
+            }
+
+            // 5. 滑动回调 (虽然被禁用了，但必须留着空方法，否则报错)
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                // 永远不会执行到这里
+            }
         });
         itemTouchHelper.attachToRecyclerView(mainRecyclerView);
     }
