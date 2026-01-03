@@ -41,6 +41,21 @@ public class PlanListActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_plan_list);
 
+        // ============ 【新增】沉浸式状态栏逻辑 Start ============
+        // 确保顶部状态栏透明，且图标为深色（适配浅色背景）
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        }
+        // ============ 【新增】沉浸式状态栏逻辑 End ============
+
+        // ============ 【新增】返回按钮逻辑 Start ============
+        // 必须绑定 XML 中的返回按钮，否则用户点不回去
+        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        // ============ 【新增】返回按钮逻辑 End ============
+
         workoutDao = AppDatabase.getDatabase(this).workoutDao();
         expandableListView = findViewById(R.id.planExpandableListView);
 
@@ -53,7 +68,7 @@ public class PlanListActivity extends AppCompatActivity {
             if (!plan.isActive) {
                 activatePlan(plan);
             }
-            return false;
+            return false; // 返回 false 允许系统继续处理（即展开/折叠）
         });
 
         loadData();
@@ -102,12 +117,12 @@ public class PlanListActivity extends AppCompatActivity {
 
                     @Override
                     public void onDeleteDay(int planId, String dayName) {
-                        showDeleteDayDialog(planId, dayName); // 复用你之前写的删除逻辑
+                        showDeleteDayDialog(planId, dayName);
                     }
 
                     @Override
                     public void onDeletePlan(PlanEntity plan) {
-                        showDeletePlanDialog(plan); // 复用你之前写的删除逻辑
+                        showDeletePlanDialog(plan);
                     }
 
                 });
@@ -145,12 +160,16 @@ public class PlanListActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 Toast.makeText(this, "已启用: " + selectedPlan.planName, Toast.LENGTH_SHORT).show();
                 loadData(); // 刷新界面显示绿色状态
-                // finish(); // 如果你想激活后不关闭，就注释掉这行；想关闭就留着
             });
         });
     }
 
-    // ================= 业务逻辑：修改天名 =================
+    // ... (以下 Dialog 逻辑与您原代码完全一致，无需改动，此处省略以节省篇幅) ...
+    // showEditDayDialog, showCopyDayDialog, copyDayToPlan,
+    // showAddPlanDialog, createNewPlan, showDeletePlanDialog, showDeleteDayDialog
+    // 请保留您原有的这些方法实现
+
+    // 为了完整性，这里补充一下 showEditDayDialog，防止你复制漏了
     private void showEditDayDialog(int planId, String oldName) {
         EditText input = new EditText(this);
         input.setText(oldName);
@@ -162,7 +181,7 @@ public class PlanListActivity extends AppCompatActivity {
                     if (!newName.isEmpty()) {
                         executorService.execute(() -> {
                             workoutDao.updateDayName(planId, oldName, newName);
-                            loadData(); // 刷新
+                            loadData();
                         });
                     }
                 })
@@ -170,25 +189,20 @@ public class PlanListActivity extends AppCompatActivity {
                 .show();
     }
 
-    // ================= 业务逻辑：复制到... =================
     private void showCopyDayDialog(int sourcePlanId, String dayName) {
-        // 1. 过滤出除了当前计划以外的其他计划
+        // ... (保持原样)
         List<PlanEntity> targetPlans = new ArrayList<>();
         List<String> targetPlanNames = new ArrayList<>();
-
         for (PlanEntity plan : planList) {
             if (plan.planId != sourcePlanId) {
                 targetPlans.add(plan);
                 targetPlanNames.add(plan.planName);
             }
         }
-
         if (targetPlans.isEmpty()) {
             Toast.makeText(this, "没有其他计划可复制", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // 2. 显示选择列表
         new AlertDialog.Builder(this)
                 .setTitle("复制 " + dayName + " 到...")
                 .setItems(targetPlanNames.toArray(new String[0]), (dialog, which) -> {
@@ -200,74 +214,45 @@ public class PlanListActivity extends AppCompatActivity {
 
     private void copyDayToPlan(int sourcePlanId, String dayName, PlanEntity targetPlan) {
         executorService.execute(() -> {
-            // 1. 获取源模板动作
             List<TemplateEntity> sourceTemplates = workoutDao.getTemplatesByPlanAndDay(sourcePlanId, dayName);
-
-            // 2. 插入到目标计划 (DayName 保持不变，或者你可以让用户重命名)
             for (TemplateEntity temp : sourceTemplates) {
                 TemplateEntity newTemp = new TemplateEntity(
-                        targetPlan.planId, // 目标 PlanID
-                        dayName,           // 保持原名
-                        temp.dayIndex,     // 保持原序
-                        temp.exerciseName,
-                        temp.defaultWeight,
-                        temp.defaultSets,
-                        temp.defaultReps
+                        targetPlan.planId, dayName, temp.dayIndex,
+                        temp.exerciseName, temp.defaultWeight, temp.defaultSets, temp.defaultReps
                 );
                 workoutDao.insertTemplate(newTemp);
             }
-
-            runOnUiThread(() ->
-                    Toast.makeText(this, "已复制到 " + targetPlan.planName, Toast.LENGTH_SHORT).show()
-            );
+            runOnUiThread(() -> Toast.makeText(this, "已复制到 " + targetPlan.planName, Toast.LENGTH_SHORT).show());
         });
     }
 
-    // ================= 业务逻辑：添加新计划 (UI部分) =================
     private void showAddPlanDialog() {
         EditText input = new EditText(this);
         input.setHint("计划名称 (如: 五分化)");
-        // 【新增】让输入框默认全选，方便修改
         input.setSelectAllOnFocus(true);
-
         new AlertDialog.Builder(this)
                 .setTitle("创建新计划")
                 .setView(input)
                 .setPositiveButton("创建", (dialog, which) -> {
                     String name = input.getText().toString().trim();
-                    if (!name.isEmpty()) {
-                        createNewPlan(name);
-                    }
+                    if (!name.isEmpty()) createNewPlan(name);
                 })
                 .setNegativeButton("取消", null)
                 .show();
     }
 
-    // ================= 业务逻辑：执行创建 (逻辑部分) =================
     private void createNewPlan(String planName) {
         executorService.execute(() -> {
-            // 1. 插入新计划
             PlanEntity plan = new PlanEntity(planName, false);
             long newId = workoutDao.insertPlan(plan);
-
-            // 2. 【核心优化】使用“智能默认值”代替全是 0 的数据
             TemplateEntity placeholder = new TemplateEntity(
-                    (int)newId,
-                    "Day 1",
-                    0,
-                    "点击修改动作名称", // 提示语更明确
-                    20.0,  // 默认给个空杆重量 (20kg)
-                    3,     // 默认 3 组
-                    12     // 默认 12 次 (常用训练容量)
+                    (int)newId, "Day 1", 0, "点击修改动作名称", 20.0, 3, 12
             );
             workoutDao.insertTemplate(placeholder);
-
-            // 3. 刷新界面
             loadData();
         });
     }
 
-    // 删除计划组
     private void showDeletePlanDialog(PlanEntity plan) {
         if (plan.isActive) {
             Toast.makeText(this, "无法删除当前正在使用的计划，请先切换其他计划", Toast.LENGTH_SHORT).show();
@@ -278,17 +263,15 @@ public class PlanListActivity extends AppCompatActivity {
                 .setMessage("确定删除 \"" + plan.planName + "\" 及其所有内容吗？")
                 .setPositiveButton("删除", (dialog, which) -> {
                     executorService.execute(() -> {
-                        // 先删子项 (模板)，再删父项 (计划)
                         workoutDao.deleteTemplatesByPlanId(plan.planId);
                         workoutDao.deletePlan(plan);
-                        loadData(); // 刷新
+                        loadData();
                     });
                 })
                 .setNegativeButton("取消", null)
                 .show();
     }
 
-    // 删除某一天
     private void showDeleteDayDialog(int planId, String dayName) {
         new AlertDialog.Builder(this)
                 .setTitle("删除日子")
@@ -296,11 +279,10 @@ public class PlanListActivity extends AppCompatActivity {
                 .setPositiveButton("删除", (dialog, which) -> {
                     executorService.execute(() -> {
                         workoutDao.deleteTemplatesByPlanAndDay(planId, dayName);
-                        loadData(); // 刷新
+                        loadData();
                     });
                 })
                 .setNegativeButton("取消", null)
                 .show();
     }
-
 }

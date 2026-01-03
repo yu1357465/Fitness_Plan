@@ -25,7 +25,6 @@ public class PlanExpandableAdapter extends BaseExpandableListAdapter {
         void onEditDay(int planId, String oldName);
         void onCopyDay(int sourcePlanId, String dayName);
         void onActivatePlan(PlanEntity plan);
-        // 【新增】删除回调
         void onDeleteDay(int planId, String dayName);
         void onDeletePlan(PlanEntity plan);
     }
@@ -81,33 +80,45 @@ public class PlanExpandableAdapter extends BaseExpandableListAdapter {
         if (convertView == null) {
             convertView = LayoutInflater.from(context).inflate(R.layout.item_plan_group, parent, false);
         }
-        ImageView btnDelete = convertView.findViewById(R.id.btnDeletePlan);
 
         PlanEntity plan = (PlanEntity) getGroup(groupPosition);
 
+        // 绑定控件
         TextView tvName = convertView.findViewById(R.id.tvPlanName);
-        TextView tvStatus = convertView.findViewById(R.id.tvActiveStatus);
+        // 【修改】ID 变更为 tvActiveBadge
+        TextView tvBadge = convertView.findViewById(R.id.tvActiveBadge);
+        ImageView btnDelete = convertView.findViewById(R.id.btnDeletePlan);
+        // 【新增】箭头图标
+        ImageView ivArrow = convertView.findViewById(R.id.ivExpandArrow);
 
+        // 设置文本
         tvName.setText(plan.planName);
 
-        // 显示当前激活状态
+        // 【修改】逻辑：不再改变文字颜色，而是控制 Badge 显示
         if (plan.isActive) {
-            tvStatus.setVisibility(View.VISIBLE);
-            tvName.setTextColor(0xFF4CAF50); // 绿色
+            tvBadge.setVisibility(View.VISIBLE); // 显示绿色胶囊标签
+            btnDelete.setVisibility(View.GONE);  // 隐藏删除按钮
+            // 保持文字黑色，看起来更整洁
+            tvName.setTextColor(0xFF333333);
         } else {
-            tvStatus.setVisibility(View.GONE);
-            tvName.setTextColor(0xFF333333); // 黑色
+            tvBadge.setVisibility(View.GONE);
+            btnDelete.setVisibility(View.VISIBLE);
+            tvName.setTextColor(0xFF333333);
         }
 
-        // 如果是当前正在用的计划，隐藏删除按钮 (防止误删)
-        if (plan.isActive) {
-            btnDelete.setVisibility(View.GONE);
+        // 【新增】箭头旋转动画
+        if (isExpanded) {
+            ivArrow.setRotation(180f); // 向上
         } else {
-            btnDelete.setVisibility(View.VISIBLE);
-            btnDelete.setOnClickListener(v -> {
-                if (actionListener != null) actionListener.onDeletePlan(plan);
-            });
+            ivArrow.setRotation(0f);   // 向下
         }
+
+        // 删除按钮点击事件
+        btnDelete.setFocusable(false); // 防止抢占列表点击焦点
+        btnDelete.setOnClickListener(v -> {
+            if (actionListener != null) actionListener.onDeletePlan(plan);
+        });
+
         return convertView;
     }
 
@@ -117,7 +128,6 @@ public class PlanExpandableAdapter extends BaseExpandableListAdapter {
         if (convertView == null) {
             convertView = LayoutInflater.from(context).inflate(R.layout.item_plan_child, parent, false);
         }
-        ImageView btnDelete = convertView.findViewById(R.id.btnDeleteDay);
 
         String dayName = (String) getChild(groupPosition, childPosition);
         PlanEntity plan = (PlanEntity) getGroup(groupPosition);
@@ -125,23 +135,22 @@ public class PlanExpandableAdapter extends BaseExpandableListAdapter {
         TextView tvDay = convertView.findViewById(R.id.tvDayName);
         ImageView btnEdit = convertView.findViewById(R.id.btnEditDay);
         ImageView btnCopy = convertView.findViewById(R.id.btnCopyDay);
+        ImageView btnDelete = convertView.findViewById(R.id.btnDeleteDay);
 
         tvDay.setText(dayName);
 
-        // 绑定编辑点击事件
+        // 绑定点击事件
+        btnEdit.setFocusable(false);
         btnEdit.setOnClickListener(v -> {
-            if (actionListener != null) {
-                actionListener.onEditDay(plan.planId, dayName);
-            }
+            if (actionListener != null) actionListener.onEditDay(plan.planId, dayName);
         });
 
-        // 绑定复制点击事件
+        btnCopy.setFocusable(false);
         btnCopy.setOnClickListener(v -> {
-            if (actionListener != null) {
-                actionListener.onCopyDay(plan.planId, dayName);
-            }
+            if (actionListener != null) actionListener.onCopyDay(plan.planId, dayName);
         });
 
+        btnDelete.setFocusable(false);
         btnDelete.setOnClickListener(v -> {
             if (actionListener != null) actionListener.onDeleteDay(plan.planId, dayName);
         });
@@ -153,7 +162,4 @@ public class PlanExpandableAdapter extends BaseExpandableListAdapter {
     public boolean isChildSelectable(int groupPosition, int childPosition) {
         return true;
     }
-
-
-
 }

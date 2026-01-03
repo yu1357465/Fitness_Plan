@@ -1,49 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="#F5F5F5">
 
-    <TextView
-        android:id="@+id/tvTitle"
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="计划管理 (Templates)"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="16dp"/>
+        android:paddingHorizontal="24dp"
+        android:paddingTop="72dp"
+        android:paddingBottom="16dp"
+        android:background="#F5F5F5"
+        app:layout_constraintTop_toTopOf="parent">
 
-    <TextView
-        android:id="@+id/tvSubtitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/tvTitle"
-        android:text="点击展开详情，使用图标进行管理"
-        android:textColor="#757575"
-        android:textSize="12sp"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="16dp"/>
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_chevron_down"
+            android:rotation="90"
+            app:tint="#333333"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tvPageTitle"
+            app:layout_constraintBottom_toBottomOf="@+id/tvPageTitle"/>
+        <TextView
+            android:id="@+id/tvPageTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="计划管理"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:letterSpacing="-0.02"
+            android:layout_marginStart="16dp"
+            app:layout_constraintStart_toEndOf="@id/btnBack"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <ExpandableListView
         android:id="@+id/planExpandableListView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/tvSubtitle"
+        android:layout_height="0dp"
+        android:divider="@null"
+        android:childDivider="@null"
         android:groupIndicator="@null"
-        android:dividerHeight="1dp"
-        android:divider="#EEEEEE"/>
+        android:clipToPadding="false"
+        android:paddingBottom="100dp"
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddPlan"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginBottom="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="42dp"
         android:src="@android:drawable/ic_input_add"
-        app:backgroundTint="#673AB7"
-        app:tint="@android:color/white"/>
-</RelativeLayout>
+        android:backgroundTint="#4DB6AC"
+        app:tint="#FFFFFF"
+        app:borderWidth="0dp"
+        app:elevation="6dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

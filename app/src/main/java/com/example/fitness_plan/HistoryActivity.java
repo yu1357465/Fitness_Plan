@@ -21,13 +21,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -267,6 +261,11 @@ public class HistoryActivity extends AppCompatActivity {
                             public void onEditHistory(HistoryEntity history) { showEditHistoryDialog(history); }
                             @Override
                             public void onDeleteHistory(HistoryEntity history) { showDeleteDialog(history); }
+                            // 【新增】删除整天回调
+                            @Override
+                            public void onDeleteDayGroup(long dateTimestamp) {
+                                showDeleteDayGroupDialog(dateTimestamp);
+                            }
                         }
                 );
                 expandableListView.setAdapter(adapter);
@@ -283,6 +282,29 @@ public class HistoryActivity extends AppCompatActivity {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         return cal.getTimeInMillis();
+    }
+
+    // 【新增】删除整天确认弹窗
+    private void showDeleteDayGroupDialog(long dateTimestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String dateStr = sdf.format(new Date(dateTimestamp));
+
+        new AlertDialog.Builder(this)
+                .setTitle("删除整天记录")
+                .setMessage("确定要删除 " + dateStr + " 的所有训练记录吗？此操作无法撤销。")
+                .setPositiveButton("删除全部", (dialog, which) -> {
+                    executorService.execute(() -> {
+                        // 需要在 DAO 里加一个方法：deleteHistoryByDate(long startTime, long endTime)
+                        // 或者简单粗暴地遍历删除（效率稍低但安全）
+                        // 假设你的分组逻辑是按天截断的 timestamp
+                        long endOfDay = dateTimestamp + 86400000L;
+                        workoutDao.deleteHistoryByRange(dateTimestamp, endOfDay);
+
+                        loadHistoryData(); // 刷新界面
+                    });
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void showDeleteDialog(HistoryEntity history) {

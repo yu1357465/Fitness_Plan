@@ -554,7 +554,7 @@ public class MainActivity extends AppCompatActivity {
         sheet.setContentView(view);
 
         // 保持统一的亮度设计
-        if (sheet.getWindow() != null) sheet.getWindow().setDimAmount(0.1f);
+        if (sheet.getWindow() != null) sheet.getWindow().setDimAmount(0.0f);
 
         TextView tvTitle = view.findViewById(R.id.tvFinishTitle);
         TextView tvSubtitle = view.findViewById(R.id.tvFinishSubtitle);
