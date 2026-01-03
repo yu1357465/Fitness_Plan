@@ -120,6 +120,34 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================
+    //  【新增】实时更新底部按钮状态
+    // =========================================================
+    private void updateFinishButtonState() {
+        if (workoutPlan == null) return;
+
+        int uncompletedCount = 0;
+        for (ExerciseEntity ex : workoutPlan) {
+            // 不计算 "新动作" (幽灵卡)
+            if (!ex.name.equals("新动作") && !ex.isCompleted) {
+                uncompletedCount++;
+            }
+        }
+
+        int finalUncompletedCount = uncompletedCount;
+        runOnUiThread(() -> {
+            if (finalUncompletedCount == 0) {
+                // 全部完成：绿色，提示存档
+                btnFinishWorkout.setText("全部完成 (点击存档)");
+                btnFinishWorkout.setBackgroundColor(Color.parseColor("#4DB6AC")); // 绿色
+            } else {
+                // 未完成：红色/橙色，提示数量
+                btnFinishWorkout.setText("还有 " + finalUncompletedCount + " 个动作 (点击结算)");
+                btnFinishWorkout.setBackgroundColor(Color.parseColor("#EF5350")); // 红色
+            }
+        });
+    }
+
+    // =========================================================
     //  逻辑 A：添加空白卡片
     // =========================================================
     private void performAddEmptyCard() {
@@ -260,10 +288,18 @@ public class MainActivity extends AppCompatActivity {
                     public void onAddEmptyCard() {
                         performAddEmptyCard();
                     }
+
+                    // 【关键修复】这里补上了接口方法
+                    @Override
+                    public void onCompletionChanged() {
+                        updateFinishButtonState();
+                    }
                 });
 
                 mainRecyclerView.setAdapter(adapter);
                 setupItemTouchHelper();
+                // 初始调用一次，更新按钮颜色
+                updateFinishButtonState();
             });
         });
     }
@@ -652,43 +688,41 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    //  【最终优化版】拖拽排序逻辑
-    //  1. 彻底禁用了左右滑动 (Flag = 0)
-    //  2. 完美保留了拖拽时的视觉特效 (变绿、变大)
+    //  【最终版】拖拽逻辑：限制把手拖拽 + 保留特效
     // =========================================================
     private void setupItemTouchHelper() {
         itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.Callback() {
 
-            // 1. 定义动作方向
+            // 1. 【核心】禁用全局长按拖拽！
+            // 这样长按卡片可以弹出菜单，只有触摸把手才能拖拽
+            @Override
+            public boolean isLongPressDragEnabled() {
+                return false;
+            }
+
+            // 2. 动作方向
             @Override
             public int getMovementFlags(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
-                // UP | DOWN : 允许上下拖拽
-                // 0 : 禁止左右滑动 (性能最高，系统直接忽略横向操作)
                 return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0);
             }
 
-            // 2. 状态改变回调 (这是边缘变色的关键！)
+            // 3. 拖拽时的视觉特效
             @Override
             public void onSelectedChanged(@androidx.annotation.Nullable RecyclerView.ViewHolder viewHolder, int actionState) {
                 super.onSelectedChanged(viewHolder, actionState);
-
-                // 只有在 "正在拖拽" (ACTION_STATE_DRAG) 时才触发特效
                 if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) {
                     ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder;
-
-                    // A. 清理可能存在的幽灵卡
                     clearGhostCard();
-
-                    // B. 施加视觉特效 (你想要的功能就在这)
-                    holder.cardNormal.setStrokeColor(Color.parseColor("#4DB6AC")); // 边框变绿
-                    holder.cardNormal.setStrokeWidth(10); // 边框变粗 (6px 比较精致,10px 比较明显)
-                    holder.itemView.setScaleX(1.02f); // 轻微放大
+                    holder.cardNormal.setStrokeColor(Color.parseColor("#4DB6AC"));
+                    holder.cardNormal.setStrokeWidth(6);
+                    holder.itemView.setScaleX(1.02f);
                     holder.itemView.setScaleY(1.02f);
-                    holder.itemView.setAlpha(0.9f);   // 轻微透明，增加浮动感
+                    holder.itemView.setAlpha(0.9f);
                 }
             }
 
-            // 3. 动作结束回调 (松手恢复)
+            // 4. 松手恢复
+            // 【核心修复】拖拽结束：恢复原本样式
             @Override
             public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
                 super.clearView(recyclerView, viewHolder);
@@ -696,16 +730,21 @@ public class MainActivity extends AppCompatActivity {
                 if (viewHolder instanceof ExerciseRecyclerAdapter.ItemViewHolder) {
                     ExerciseRecyclerAdapter.ItemViewHolder holder = (ExerciseRecyclerAdapter.ItemViewHolder) viewHolder;
 
-                    // 恢复原状
-                    holder.cardNormal.setStrokeWidth(0); // 去掉边框
-                    holder.cardNormal.setStrokeColor(Color.TRANSPARENT);
+                    // 1. 恢复物理形变 (缩放、透明度)
                     holder.itemView.setScaleX(1.0f);
                     holder.itemView.setScaleY(1.0f);
                     holder.itemView.setAlpha(1.0f);
+
+                    // 2. 【关键】不要在这里手动 setStrokeWidth(0) 了！
+                    // 直接通知 Adapter 刷新这一行。
+                    // Adapter 会重新运行 bindItem，根据是"计划"还是"临时"自动画出正确的边框。
+                    int position = holder.getAdapterPosition();
+                    if (position != RecyclerView.NO_POSITION && adapter != null) {
+                        adapter.notifyItemChanged(position);
+                    }
                 }
             }
 
-            // 4. 处理拖拽位置交换
             @Override
             public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder source, @NonNull RecyclerView.ViewHolder target) {
                 if (adapter != null) {
@@ -715,11 +754,8 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
 
-            // 5. 滑动回调 (虽然被禁用了，但必须留着空方法，否则报错)
             @Override
-            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                // 永远不会执行到这里
-            }
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {}
         });
         itemTouchHelper.attachToRecyclerView(mainRecyclerView);
     }
