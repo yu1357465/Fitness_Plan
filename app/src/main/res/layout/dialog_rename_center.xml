@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="16dp"
+        app:strokeWidth="0dp"
+        app:cardBackgroundColor="#4DB6AC">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/tvDialogTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="修改名称"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="20dp"/>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_flat_rounded"
+                android:backgroundTint="#33FFFFFF"
+                android:paddingHorizontal="16dp">
+
+                <EditText
+                    android:id="@+id/etRenameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:background="@null"
+                    android:textSize="18sp"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#B3FFFFFF"
+                    android:textStyle="bold"
+                    android:singleLine="true"
+                    android:imeOptions="actionDone"
+                    android:hint="请输入名称"/>
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="28dp"
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/btnCancel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="取消"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:paddingVertical="10dp"
+                    android:paddingHorizontal="20dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"/>
+
+                <TextView
+                    android:id="@+id/btnConfirm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="确定"
+                    android:textSize="16sp"
+                    android:textColor="#4DB6AC"
+                    android:textStyle="bold"
+                    android:paddingVertical="10dp"
+                    android:paddingHorizontal="24dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/bg_flat_rounded"
+                    android:backgroundTint="#FFFFFF"
+                    android:clickable="true"/>
+            </LinearLayout>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>

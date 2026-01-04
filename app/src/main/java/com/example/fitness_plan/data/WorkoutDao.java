@@ -95,6 +95,10 @@ public interface WorkoutDao {
     @Query("UPDATE template_table SET exercise_name = :newName WHERE exercise_name = :oldName")
     void smartRename(String oldName, String newName);
 
+    // 【核心修复】添加这个缺失的方法！
+    @Update
+    void updatePlan(PlanEntity plan);
+
     // ==========================================
     //  History 表 (历史记录) - 【核心修复区域】
     // ==========================================
@@ -111,7 +115,7 @@ public interface WorkoutDao {
     @Query("SELECT * FROM history_table ORDER BY date DESC")
     List<HistoryEntity> getAllHistory();
 
-    @Query("SELECT * FROM history_table WHERE exercise_name = :name ORDER BY date DESC")
+    @Query("SELECT * FROM history_table WHERE exerciseName = :name ORDER BY date DESC")
     List<HistoryEntity> getHistoryByName(String name);
 
     // 【之前你已经加了这个】用于删除整天

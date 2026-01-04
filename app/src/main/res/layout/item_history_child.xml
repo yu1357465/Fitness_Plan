@@ -2,15 +2,24 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:background="?attr/selectableItemBackground">
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:background="@drawable/bg_plan_child_solid">
+
+        <View
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:background="@drawable/shape_circle_dot"
+            android:backgroundTint="#CFD8DC"
+            android:layout_marginEnd="12dp"/>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -19,32 +28,23 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvHistoryName"
+                android:id="@+id/tvExerciseName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="深蹲"
+                android:text="平板卧推"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#333333"/>
+                android:textColor="#546E7A"/>
 
             <TextView
-                android:id="@+id/tvHistoryWorkoutTitle"
+                android:id="@+id/tvExerciseDetails"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="经典三分化 - 推力日"
-                android:textSize="12sp"
-                android:textColor="#999999"
-                android:layout_marginTop="4dp"/>
+                android:text="4组 · 100kg x 8"
+                android:textSize="13sp"
+                android:textColor="#90A4AE"
+                android:layout_marginTop="2dp"/>
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvHistoryData"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="100kg x 5 x 5"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:gravity="end"/>
 
     </LinearLayout>
 </LinearLayout>

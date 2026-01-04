@@ -33,7 +33,7 @@ public class CsvExportUtils {
                 sb.append(sdf.format(new Date(item.date))).append(",");
 
                 // --- B. 【核心逻辑】拆分 计划名称 和 训练日程 ---
-                String fullTitle = (item.workoutTitle == null) ? "自由训练" : item.workoutTitle;
+                String fullTitle = (item.workoutName == null) ? "自由训练" : item.workoutName;
                 String planName = "";
                 String dayName = fullTitle;
 
@@ -48,7 +48,7 @@ public class CsvExportUtils {
                 sb.append(escapeCsv(dayName)).append(",");  // 日程列
 
                 // --- C. 动作数据 ---
-                sb.append(escapeCsv(item.name)).append(",");
+                sb.append(escapeCsv(item.exerciseName)).append(",");
                 sb.append(item.weight).append(",");
                 sb.append(item.sets).append(",");
                 sb.append(item.reps).append("\n");

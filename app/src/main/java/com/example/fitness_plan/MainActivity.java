@@ -33,6 +33,7 @@ import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -96,6 +97,18 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.daySelectionContainer).setOnClickListener(v -> showDayMenu(v));
         findViewById(R.id.fabAdd).setVisibility(View.GONE);
 
+        // ... 在 onCreate 方法中 ...
+        FloatingActionButton fab = findViewById(R.id.fabAdd);
+
+        // 短按：添加新动作
+        fab.setOnClickListener(v -> showAddDialog());
+
+        // 【新增】长按：结束训练并归档
+        fab.setOnLongClickListener(v -> {
+            checkAndShowFinishDialog(); // 调用UI弹窗方法
+            return true;
+        });
+
         btnFinishWorkout.setOnClickListener(v -> finishAndSwitchCycle());
     }
 
@@ -123,26 +136,51 @@ public class MainActivity extends AppCompatActivity {
     //  【新增】实时更新底部按钮状态
     // =========================================================
     private void updateFinishButtonState() {
-        if (workoutPlan == null) return;
+        if (workoutPlan == null || workoutPlan.isEmpty()) {
+            runOnUiThread(() -> {
+                btnFinishWorkout.setText("今日无训练");
+                btnFinishWorkout.setBackgroundColor(android.graphics.Color.parseColor("#B0BEC5"));
+                btnFinishWorkout.setEnabled(false);
+            });
+            return;
+        }
 
         int uncompletedCount = 0;
         for (ExerciseEntity ex : workoutPlan) {
-            // 不计算 "新动作" (幽灵卡)
-            if (!ex.name.equals("新动作") && !ex.isCompleted) {
+            if (ex.name != null && !ex.name.equals("新动作") && !ex.isCompleted) {
                 uncompletedCount++;
             }
         }
 
         int finalUncompletedCount = uncompletedCount;
+
         runOnUiThread(() -> {
+            btnFinishWorkout.setEnabled(true);
+
             if (finalUncompletedCount == 0) {
-                // 全部完成：绿色，提示存档
-                btnFinishWorkout.setText("全部完成 (点击存档)");
-                btnFinishWorkout.setBackgroundColor(Color.parseColor("#4DB6AC")); // 绿色
+                // 🟢 全部完成
+                btnFinishWorkout.setText("完成打卡");
+                btnFinishWorkout.setBackgroundColor(android.graphics.Color.parseColor("#4DB6AC"));
             } else {
-                // 未完成：红色/橙色，提示数量
-                btnFinishWorkout.setText("还有 " + finalUncompletedCount + " 个动作 (点击结算)");
-                btnFinishWorkout.setBackgroundColor(Color.parseColor("#EF5350")); // 红色
+                // 🟠 还有未完成
+                String countStr = String.valueOf(finalUncompletedCount);
+                String prefix = "还剩 ";
+                String suffix = " 个动作结束";
+                String fullText = prefix + countStr + suffix;
+
+                android.text.SpannableString spannable = new android.text.SpannableString(fullText);
+
+                int start = prefix.length();
+                int end = start + countStr.length();
+
+                // 【核心修改】使用自定义的 CenterScaleSpan，参数 1.8f 是放大倍数
+                spannable.setSpan(new CenterScaleSpan(1.8f), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                // 加粗一下数字，效果更好
+                spannable.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                btnFinishWorkout.setText(spannable);
+                btnFinishWorkout.setBackgroundColor(android.graphics.Color.parseColor("#FB8C00"));
             }
         });
     }
@@ -305,55 +343,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    //  逻辑 C：重命名 (丝滑键盘版)
-    //  解决：键盘弹起导致底部栏闪烁、布局跳动的问题
+    //  逻辑 C：重命名 (主页动作 - 全绿卡片风格)
+    //  与计划管理页保持一致：悬浮绿卡、无Dim、键盘直出
     // =========================================================
     private void showRenameDialog(ExerciseEntity exercise) {
-        // 1. 创建 Dialog
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, com.google.android.material.R.style.Theme_Design_BottomSheetDialog);
-        View view = getLayoutInflater().inflate(R.layout.dialog_bottom_sheet_rename, null);
-        bottomSheetDialog.setContentView(view);
+        // 1. 加载通用的绿色卡片布局
+        View view = getLayoutInflater().inflate(R.layout.dialog_rename_center, null);
 
-        // 2. 【核心优化】设置窗口模式
-        if (bottomSheetDialog.getWindow() != null) {
-            bottomSheetDialog.getWindow().setDimAmount(0.0f);
-            // 使用 ADJUST_RESIZE：让键盘盖在内容上或者压缩内容高度，而不是把整个窗口顶上去
-            // 配合下面的 STATE_EXPANDED 使用效果最佳
-            bottomSheetDialog.getWindow().setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
-                            android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-            );
-        }
-
+        android.widget.TextView tvTitle = view.findViewById(R.id.tvDialogTitle);
         android.widget.EditText etInput = view.findViewById(R.id.etRenameInput);
-        Button btnCancel = view.findViewById(R.id.btnCancel);
-        Button btnConfirm = view.findViewById(R.id.btnConfirm);
+        View btnCancel = view.findViewById(R.id.btnCancel);
+        View btnConfirm = view.findViewById(R.id.btnConfirm);
+
+        // 2. 初始化数据
+        tvTitle.setText("修改动作名称"); // 稍微区分一下标题
 
         boolean isGhost = exercise.name.equals("新动作");
-        final boolean[] isConfirmed = {false};
-
         if (isGhost) {
-            etInput.setText("");
+            etInput.setText(""); // 如果是新动作，清空输入框方便直接输
         } else {
             etInput.setText(exercise.name);
-            etInput.setSelection(exercise.name.length());
+            etInput.setSelection(exercise.name.length()); // 光标移到最后
         }
 
-        btnCancel.setOnClickListener(v -> bottomSheetDialog.dismiss());
+        // 3. 构建 Dialog
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(view)
+                .setCancelable(true)
+                .create();
 
-        btnConfirm.setOnClickListener(v -> {
+        // 4. 设置窗口属性 (透明背景 + 无变暗 + 强制弹键盘)
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setDimAmount(0f); // 关键：背景不闪烁
+            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        }
+
+        // 5. 事件监听
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        // 确认按钮逻辑
+        View.OnClickListener confirmAction = v -> {
             String newName = etInput.getText().toString().trim();
             if (!newName.isEmpty()) {
-                isConfirmed[0] = true;
                 String oldName = exercise.name;
                 exercise.name = newName;
 
+                // 数据库操作 (保留你原有的复杂逻辑)
                 executorService.execute(() -> {
                     workoutDao.update(exercise);
+
+                    // 如果是"新动作"且需要加入计划
                     if (isGhost && defaultAddToPlan) {
-                        PlanEntity activePlan = workoutDao.getActivePlan();
+                        com.example.fitness_plan.data.PlanEntity activePlan = workoutDao.getActivePlan();
                         if (activePlan != null && currentPlanName != null) {
-                            TemplateEntity template = new TemplateEntity();
+                            com.example.fitness_plan.data.TemplateEntity template = new com.example.fitness_plan.data.TemplateEntity();
                             template.planId = activePlan.planId;
                             template.dayName = currentPlanName;
                             template.exerciseName = newName;
@@ -363,50 +407,45 @@ public class MainActivity extends AppCompatActivity {
                             workoutDao.insertTemplate(template);
                         }
                     } else {
+                        // 智能重命名：修改同名的其他动作
                         boolean isPermanent = exercise.color == null || exercise.color.equalsIgnoreCase("#FFFFFF");
                         if (isPermanent) {
                             workoutDao.smartRename(oldName, newName);
                         }
                     }
+                    // 刷新主页数据
                     loadDataFromDatabase();
                 });
-                bottomSheetDialog.dismiss();
-            } else {
-                bottomSheetDialog.dismiss();
+                dialog.dismiss();
             }
+        };
+
+        btnConfirm.setOnClickListener(confirmAction);
+
+        // 监听软键盘"完成"键
+        etInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                confirmAction.onClick(v);
+                return true;
+            }
+            return false;
         });
 
-        bottomSheetDialog.setOnDismissListener(dialog -> {
-            if (!isConfirmed[0] && isGhost) {
+        // 监听 Dialog 关闭 (处理取消新建的情况)
+        dialog.setOnDismissListener(d -> {
+            // 如果是新动作且没改名(没点确定)，则删除这个临时卡片
+            // 注意：这里需要一个标志位判断是否点击了确定，简单起见，可以检查 exercise.name 是否还是 "新动作"
+            // 但因为我们已经 set text 了，最好是在 confirmAction 里设个 flag。
+            // 简单处理：如果 exercise.name 还是 "新动作" 或者是 空，则删除
+            if (isGhost && (exercise.name.equals("新动作") || exercise.name.isEmpty())) {
                 deleteTempCard(exercise);
             }
         });
 
-        // 3. 【核心优化】界面显示后的处理 (锁定状态 + 丝滑弹键盘)
-        bottomSheetDialog.setOnShowListener(dialog -> {
-            BottomSheetDialog d = (BottomSheetDialog) dialog;
+        dialog.show();
 
-            // A. 锁定 BottomSheet 状态为 EXPANDED (全展开)
-            // 这样键盘弹起时，Sheet 本身不会试图去计算高度，从而避免了"跳动"
-            android.widget.FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                com.google.android.material.bottomsheet.BottomSheetBehavior<View> behavior =
-                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
-                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
-                behavior.setSkipCollapsed(true); // 禁止折叠
-            }
-
-            // B. 延时聚焦，等待布局稳定
-            etInput.requestFocus();
-            etInput.postDelayed(() -> {
-                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-                if (imm != null) {
-                    imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
-                }
-            }, 100); // 100ms 延时足够让 UI 渲染完毕，肉眼感觉不到卡顿，但能消除闪烁
-        });
-
-        bottomSheetDialog.show();
+        // 双重保险：请求焦点
+        etInput.requestFocus();
     }
 
     private void deleteTempCard(ExerciseEntity exercise) {
@@ -420,6 +459,204 @@ public class MainActivity extends AppCompatActivity {
             }
             runOnUiThread(() -> Toast.makeText(this, "已取消添加", Toast.LENGTH_SHORT).show());
         });
+    }
+
+    // ==========================================
+    //  逻辑 D: 结束训练 (防闪退 + 全新UI版)
+    // ==========================================
+
+    // 1. 入口方法：先检查状态，再决定弹什么窗
+    private void checkAndShowFinishDialog() {
+        executorService.execute(() -> {
+            // 先在后台查一下有没有没做完的
+            List<ExerciseEntity> all = workoutDao.getAllExercises();
+            boolean hasUnfinished = false;
+            for (ExerciseEntity ex : all) {
+                if (!ex.isCompleted) {
+                    hasUnfinished = true;
+                    break;
+                }
+            }
+
+            boolean finalHasUnfinished = hasUnfinished;
+            runOnUiThread(() -> {
+                if (finalHasUnfinished) {
+                    // 有未完成的 -> 弹出自定义选择弹窗
+                    showCustomFinishDialog();
+                } else {
+                    // 全部都做完了 -> 直接简单确认，然后归档
+                    showSimpleConfirmDialog();
+                }
+            });
+        });
+    }
+
+    // 2. 情况A：自定义弹窗 (有未完成动作时)
+    private void showCustomFinishDialog() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_finish_workout, null);
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(view)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setDimAmount(0.3f); // 稍微暗一点点背景，突出弹窗
+        }
+
+        // 绑定事件
+        view.findViewById(R.id.btnMarkAll).setOnClickListener(v -> {
+            performFinishWorkout(true); // 标记全部
+            dialog.dismiss();
+        });
+
+        view.findViewById(R.id.btnArchiveChecked).setOnClickListener(v -> {
+            performFinishWorkout(false); // 仅归档已做
+            dialog.dismiss();
+        });
+
+        view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
+    // 3. 情况B：简单确认 (全部做完时)
+    private void showSimpleConfirmDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🎉 恭喜完成！")
+                .setMessage("所有动作都已搞定，确定要归档并进入下一天吗？")
+                .setPositiveButton("确定归档", (dialog, which) -> performFinishWorkout(false)) // 全都做完了，不需要自动标记逻辑，传false即可
+                .setNegativeButton("再练练", null)
+                .show();
+    }
+
+    // 4. 核心后台逻辑 (修复闪退的关键)
+    private void performFinishWorkout(boolean autoMarkAll) {
+        executorService.execute(() -> {
+            try {
+                // 第一阶段：处理数据状态
+                if (autoMarkAll) {
+                    // 1. 先把数据库里没勾的都勾上
+                    List<ExerciseEntity> currentList = workoutDao.getAllExercises();
+                    for (ExerciseEntity ex : currentList) {
+                        if (!ex.isCompleted) {
+                            ex.isCompleted = true;
+                            workoutDao.update(ex);
+                        }
+                    }
+                    // 【关键防闪退补丁】
+                    // 更新完数据库后，必须重新查询一次！
+                    // 否则后续逻辑可能操作的是旧对象，或者因并发导致空指针
+                }
+
+                // 第二阶段：获取最终数据进行归档
+                // 无论是否 autoMarkAll，这里都重新查一遍，保证拿到的是最新、最热乎的数据
+                List<ExerciseEntity> finalExercises = workoutDao.getAllExercises();
+
+                if (finalExercises.isEmpty()) {
+                    runOnUiThread(() -> android.widget.Toast.makeText(this, "没有数据可归档", android.widget.Toast.LENGTH_SHORT).show());
+                    return;
+                }
+
+                long now = System.currentTimeMillis();
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy年MM月dd日", java.util.Locale.CHINA);
+                String dateStr = sdf.format(new java.util.Date(now));
+
+                com.example.fitness_plan.data.PlanEntity activePlan = workoutDao.getActivePlan();
+                String planName = (activePlan != null && activePlan.planName != null) ? activePlan.planName : "自由训练";
+
+                String currentDayName = (currentPlanName != null) ? currentPlanName : "临时训练";
+
+                // 开始搬运数据到 History
+                boolean hasFinishedItems = false;
+                for (ExerciseEntity ex : finalExercises) {
+                    if (ex.isCompleted) {
+                        com.example.fitness_plan.data.HistoryEntity history = new com.example.fitness_plan.data.HistoryEntity(
+                                now, dateStr, currentDayName, // 使用 训练日名称 (如 推力日)
+                                ex.name, ex.weight, ex.reps, ex.sets
+                        );
+                        // 如果你之前的 HistoryEntity 有 workoutName 字段用来存 "计划-日子"，可以在这里拼装
+                        // history.workoutName = planName + " - " + currentDayName;
+
+                        workoutDao.insertHistory(history);
+                        hasFinishedItems = true;
+                    }
+                }
+
+                if (!hasFinishedItems) {
+                    runOnUiThread(() -> android.widget.Toast.makeText(this, "没有已完成的动作，取消归档", android.widget.Toast.LENGTH_SHORT).show());
+                    return;
+                }
+
+                // 第三阶段：清理与进阶
+                workoutDao.clearCurrentPlan();
+
+                // 自动加载下一天
+                if (activePlan != null) {
+                    List<String> days = workoutDao.getDayNamesByPlanId(activePlan.planId);
+                    if (days != null && !days.isEmpty()) {
+                        android.content.SharedPreferences prefs = getSharedPreferences("fitness_prefs", MODE_PRIVATE);
+                        int currentIndex = prefs.getInt("PLAN_INDEX", 0);
+                        int nextIndex = (currentIndex + 1) % days.size();
+
+                        prefs.edit().putInt("PLAN_INDEX", nextIndex).apply();
+
+                        String nextDayName = days.get(nextIndex);
+                        List<com.example.fitness_plan.data.TemplateEntity> templates =
+                                workoutDao.getTemplatesByPlanAndDay(activePlan.planId, nextDayName);
+
+                        for (com.example.fitness_plan.data.TemplateEntity t : templates) {
+                            ExerciseEntity e = new ExerciseEntity(t.exerciseName, t.defaultWeight, t.defaultSets, t.defaultReps, false);
+                            e.sortOrder = t.sortOrder;
+                            workoutDao.insert(e);
+                        }
+                        currentPlanName = nextDayName;
+                    }
+                }
+
+                // 第四阶段：刷新 UI
+                runOnUiThread(() -> {
+                    android.widget.Toast.makeText(this, "✅ 已归档", android.widget.Toast.LENGTH_SHORT).show();
+                    loadDataFromDatabase();
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> android.widget.Toast.makeText(this, "归档失败: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    // 1. 【新增】把这个方法加到 MainActivity 内部（放在 finishWorkout 下面即可）
+    private void showAddDialog() {
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("输入动作名称 (如: 哑铃弯举)");
+        // 自动弹键盘
+        input.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                input.post(() -> {
+                    android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                    imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                });
+            }
+        });
+        input.requestFocus();
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("添加今日动作")
+                .setView(input)
+                .setPositiveButton("添加", (dialog, which) -> {
+                    String name = input.getText().toString().trim();
+                    if (!name.isEmpty()) {
+                        executorService.execute(() -> {
+                            // 默认数据: 20kg, 4组, 12次
+                            ExerciseEntity exercise = new ExerciseEntity(name, 20.0, 4, 12, false);
+                            workoutDao.insert(exercise);
+                            loadDataFromDatabase();
+                        });
+                    }
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     // =========================================================
@@ -627,7 +864,7 @@ public class MainActivity extends AppCompatActivity {
 
             btnPrimary.setText("确定存档");
             btnPrimary.setOnClickListener(v -> {
-                executorService.execute(this::saveAndFinish);
+                checkAndShowFinishDialog();
                 sheet.dismiss();
             });
 
@@ -648,7 +885,7 @@ public class MainActivity extends AppCompatActivity {
                         ex.isCompleted = true;
                         workoutDao.update(ex);
                     }
-                    saveAndFinish();
+                    checkAndShowFinishDialog();
                 });
                 sheet.dismiss();
             });
@@ -657,54 +894,12 @@ public class MainActivity extends AppCompatActivity {
             btnSecondary.setText("跳过这些，仅存档已完成");
             btnSecondary.setTextColor(Color.parseColor("#666666"));
             btnSecondary.setOnClickListener(v -> {
-                executorService.execute(this::saveAndFinish);
+                checkAndShowFinishDialog();
                 sheet.dismiss();
             });
         }
 
         sheet.show();
-    }
-
-    private void saveAndFinish() {
-        PlanEntity activePlan = workoutDao.getActivePlan();
-        String planName = (activePlan != null) ? activePlan.planName : "自由训练";
-        String dayTitle = (currentPlanName != null) ? currentPlanName : "临时训练";
-        String fullTitle = planName + " - " + dayTitle;
-        long currentTime = System.currentTimeMillis();
-        for (ExerciseEntity ex : workoutPlan) {
-            if (ex.isCompleted) {
-                HistoryEntity history = new HistoryEntity(currentTime, ex.name, ex.weight, ex.sets, ex.reps, isLbsMode);
-                history.workoutTitle = fullTitle;
-                workoutDao.insertHistory(history);
-            }
-        }
-        if (activePlan != null) {
-            List<String> days = workoutDao.getPlanDays(activePlan.planId);
-            if (!days.isEmpty()) {
-                SharedPreferences prefs = getSharedPreferences("fitness_prefs", MODE_PRIVATE);
-                int currentIndex = prefs.getInt("PLAN_INDEX", 0);
-                int nextIndex = (currentIndex + 1) % days.size();
-                prefs.edit().putInt("PLAN_INDEX", nextIndex).apply();
-            }
-        }
-        workoutDao.clearAllExercises();
-        if (activePlan != null) {
-            SharedPreferences prefs = getSharedPreferences("fitness_prefs", MODE_PRIVATE);
-            int nextIndex = prefs.getInt("PLAN_INDEX", 0);
-            List<String> days = workoutDao.getPlanDays(activePlan.planId);
-            if (!days.isEmpty()) {
-                String nextDayName = days.get(nextIndex);
-                List<TemplateEntity> templates = workoutDao.getTemplatesByPlanAndDay(activePlan.planId, nextDayName);
-                for (TemplateEntity t : templates) {
-                    ExerciseEntity e = new ExerciseEntity(t.exerciseName, t.defaultWeight, t.defaultSets, t.defaultReps, false);
-                    e.sortOrder = t.sortOrder;
-                    e.color = "#FFFFFF";
-                    workoutDao.insert(e);
-                }
-            }
-        }
-        loadDataFromDatabase();
-        runOnUiThread(() -> Toast.makeText(MainActivity.this, "训练完成！已存档", Toast.LENGTH_SHORT).show());
     }
 
     // =========================================================
@@ -783,4 +978,45 @@ public class MainActivity extends AppCompatActivity {
     private void loadChartData(LineChart chart, String exerciseName) { executorService.execute(() -> { List<HistoryEntity> historyList = workoutDao.getHistoryByName(exerciseName); Collections.sort(historyList, (h1, h2) -> Long.compare(h1.date, h2.date)); int start = Math.max(0, historyList.size() - 10); List<HistoryEntity> recentList = historyList.subList(start, historyList.size()); if (recentList.isEmpty()) { runOnUiThread(() -> { chart.setNoDataText("暂无历史数据"); chart.invalidate(); }); return; } List<Entry> entries = new ArrayList<>(); List<String> labels = new ArrayList<>(); SimpleDateFormat sdf = new SimpleDateFormat("MM-dd", Locale.getDefault()); for (int i = 0; i < recentList.size(); i++) { HistoryEntity h = recentList.get(i); entries.add(new Entry(i, (float) h.weight)); labels.add(sdf.format(new Date(h.date))); } runOnUiThread(() -> setupChart(chart, entries, labels)); }); }
 
     private void setupChart(LineChart chart, List<Entry> entries, List<String> labels) { LineDataSet dataSet = new LineDataSet(entries, "重量趋势"); dataSet.setColor(Color.parseColor("#4DB6AC")); dataSet.setLineWidth(2f); dataSet.setCircleColor(Color.parseColor("#4DB6AC")); dataSet.setCircleRadius(4f); dataSet.setDrawValues(true); dataSet.setValueTextSize(10f); dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER); LineData lineData = new LineData(dataSet); chart.setData(lineData); chart.setDescription(null); chart.getLegend().setEnabled(false); XAxis xAxis = chart.getXAxis(); xAxis.setPosition(XAxis.XAxisPosition.BOTTOM); xAxis.setGranularity(1f); xAxis.setValueFormatter(new IndexAxisValueFormatter(labels)); xAxis.setDrawGridLines(false); chart.getAxisRight().setEnabled(false); chart.getAxisLeft().setDrawGridLines(true); chart.animateX(500); chart.invalidate(); }
+
+    /**
+     * 自定义 Span：放大文字并垂直居中
+     */
+    public static class CenterScaleSpan extends android.text.style.ReplacementSpan {
+        private final float scale;
+
+        public CenterScaleSpan(float scale) {
+            this.scale = scale;
+        }
+
+        @Override
+        public int getSize(@NonNull android.graphics.Paint paint, CharSequence text, int start, int end, @androidx.annotation.Nullable android.graphics.Paint.FontMetricsInt fm) {
+            android.graphics.Paint newPaint = new android.graphics.Paint(paint);
+            newPaint.setTextSize(paint.getTextSize() * scale);
+            // 如果需要更新 FontMetrics 来撑开行高，可以在这里操作 fm
+            // 但为了简单，我们通常只返回宽度
+            return (int) newPaint.measureText(text, start, end);
+        }
+
+        @Override
+        public void draw(@NonNull android.graphics.Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, @NonNull android.graphics.Paint paint) {
+            android.graphics.Paint newPaint = new android.graphics.Paint(paint);
+            newPaint.setTextSize(paint.getTextSize() * scale);
+
+            // 计算垂直偏移量
+            android.graphics.Paint.FontMetricsInt originalFm = paint.getFontMetricsInt();
+            android.graphics.Paint.FontMetricsInt newFm = newPaint.getFontMetricsInt();
+
+            // 原文字（小字）的垂直中心
+            float originalCenter = (originalFm.descent + originalFm.ascent) / 2f;
+            // 新文字（大字）的垂直中心
+            float newCenter = (newFm.descent + newFm.ascent) / 2f;
+
+            // 偏移量 = 原中心 - 新中心
+            float dy = originalCenter - newCenter;
+
+            // 绘制
+            canvas.drawText(text, start, end, x, y + dy, newPaint);
+        }
+    }
 }

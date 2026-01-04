@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="24dp"
+        app:strokeWidth="3dp"
+        app:strokeColor="#4DB6AC"
+        app:cardBackgroundColor="@android:color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🎉 结束今日训练"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:textColor="#333333"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:id="@+id/tvMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="检测到还有未完成的动作，\n请选择处理方式："
+                android:textSize="15sp"
+                android:gravity="center"
+                android:textColor="#757575"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="24dp"/>
+
+            <TextView
+                android:id="@+id/btnMarkAll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="全标完成并归档"
+                android:textSize="16sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="14dp"
+                android:background="@drawable/bg_flat_rounded"
+                android:backgroundTint="#4DB6AC"
+                android:clickable="true"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="自动打钩剩余动作，记录完美的一天"
+                android:textSize="12sp"
+                android:textColor="#B0BEC5"
+                android:layout_gravity="center"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:id="@+id/btnArchiveChecked"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="跳过剩余，仅归档已做"
+                android:textSize="16sp"
+                android:textColor="#4DB6AC"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="14dp"
+                android:background="@drawable/bg_flat_rounded"
+                android:backgroundTint="#E0F2F1"
+                android:clickable="true"/>
+
+            <TextView
+                android:id="@+id/btnCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="取消"
+                android:textSize="15sp"
+                android:textColor="#90A4AE"
+                android:padding="12dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"/>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>

@@ -17,19 +17,6 @@
         android:background="#F5F5F5"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:id="@+id/btnBack"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_chevron_down"
-            android:rotation="90"
-            app:tint="#333333"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:focusable="true"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/tvPageTitle"
-            app:layout_constraintBottom_toBottomOf="@+id/tvPageTitle"/>
         <TextView
             android:id="@+id/tvPageTitle"
             android:layout_width="wrap_content"
@@ -39,20 +26,16 @@
             android:textStyle="bold"
             android:textColor="#333333"
             android:letterSpacing="-0.02"
-            android:layout_marginStart="16dp"
-            app:layout_constraintStart_toEndOf="@id/btnBack"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <ExpandableListView
-        android:id="@+id/planExpandableListView"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/planRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:divider="@null"
-        android:childDivider="@null"
-        android:groupIndicator="@null"
         android:clipToPadding="false"
         android:paddingBottom="100dp"
         android:scrollbars="none"

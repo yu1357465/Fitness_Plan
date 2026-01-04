@@ -5,8 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
-    android:layout_marginVertical="6dp"
-    android:clipChildren="false">
+    android:layout_marginVertical="6dp">
 
     <View
         android:id="@+id/popupAnchor"
@@ -19,29 +18,36 @@
         android:id="@+id/cardCompleted"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#F0F0F0"
+        app:cardMaxElevation="0dp"
+        android:stateListAnimator="@null"
+        app:cardBackgroundColor="#F5F5F5"
         app:strokeWidth="0dp"
+        app:strokeColor="@android:color/transparent"
         android:visibility="invisible">
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:padding="16dp">
             <TextView
                 android:id="@+id/tvNameCompleted"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 tools:text="Barbell Bench Press"
                 android:textSize="20sp"
                 android:textStyle="bold"
-                android:textColor="#AAAAAA"
+                android:textColor="#B0BEC5"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"/>
+                app:layout_constraintEnd_toStartOf="@+id/ivCheckMark"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
             <ImageView
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@android:drawable/checkbox_on_background"
+                android:id="@+id/ivCheckMark"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_check_circle"
                 app:tint="#4DB6AC"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -53,11 +59,15 @@
         android:id="@+id/cardDelete"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
-        app:cardBackgroundColor="#FF5252"
+        app:cardMaxElevation="0dp"
+        android:stateListAnimator="@null"
+        app:cardBackgroundColor="#EF5350"
         app:strokeWidth="0dp"
+        app:strokeColor="@android:color/transparent"
         android:visibility="invisible">
+
         <LinearLayout
             android:id="@+id/deleteClickArea"
             android:layout_width="match_parent"
@@ -67,18 +77,18 @@
             android:clickable="true"
             android:focusable="true">
             <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:src="@android:drawable/ic_menu_delete"
                 app:tint="#FFFFFF" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="点击确认删除"
+                android:text="删除"
                 android:textColor="#FFFFFF"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:layout_marginStart="12dp"/>
+                android:layout_marginStart="8dp"/>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -86,11 +96,13 @@
         android:id="@+id/cardNormal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="@color/flat_divider"
-        app:cardBackgroundColor="@color/flat_card_bg">
+        app:cardMaxElevation="0dp"
+        android:stateListAnimator="@null"
+        app:strokeWidth="0dp"
+        app:strokeColor="@android:color/transparent"
+        app:cardBackgroundColor="@android:color/white">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/normalLayout"
@@ -101,13 +113,13 @@
 
             <ImageView
                 android:id="@+id/ivDragHandle"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:src="@drawable/ic_hand_grab"
-                app:tint="@color/flat_text_secondary"
+                app:tint="#CFD8DC"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="4dp"
+                android:padding="2dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
@@ -116,37 +128,38 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:src="@android:drawable/ic_menu_gallery"
-                app:tint="@color/flat_accent"
-                android:visibility="visible"
-                android:padding="6dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:layout_marginEnd="0dp"
-                app:layout_constraintEnd_toStartOf="@+id/ivDragHandle"
-                app:layout_constraintTop_toTopOf="@+id/ivDragHandle"/>
-
-            <ImageView
-                android:id="@+id/btnPin"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/ic_pin_outline"
-                app:tint="@color/flat_text_secondary"
+                app:tint="#4DB6AC"
                 android:visibility="visible"
                 android:padding="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
                 android:focusable="true"
                 android:layout_marginEnd="4dp"
+                app:layout_constraintEnd_toStartOf="@+id/ivDragHandle"
+                app:layout_constraintTop_toTopOf="@+id/ivDragHandle"
+                app:layout_constraintBottom_toBottomOf="@+id/ivDragHandle"/>
+
+            <ImageView
+                android:id="@+id/btnPin"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_pin_outline"
+                app:tint="#B0BEC5"
+                android:visibility="visible"
+                android:padding="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="0dp"
                 app:layout_constraintEnd_toStartOf="@+id/btnChart"
-                app:layout_constraintTop_toTopOf="@+id/ivDragHandle"/>
+                app:layout_constraintTop_toTopOf="@+id/btnChart"/>
 
             <TextView
                 android:id="@+id/tvExerciseName"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Barbell Bench Press"
-                android:textColor="@color/flat_text_primary"
+                android:text="平板卧推"
+                android:textColor="#37474F"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:paddingVertical="4dp"
@@ -161,7 +174,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="12dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvExerciseName">
@@ -169,12 +182,11 @@
                 <LinearLayout
                     android:id="@+id/layoutWeight"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1.3"
+                    android:layout_height="48dp"
+                    android:layout_weight="1.4"
                     android:orientation="horizontal"
                     android:gravity="center"
                     android:background="@drawable/bg_flat_rounded"
-                    android:paddingVertical="6dp"
                     android:paddingHorizontal="12dp">
                     <EditText
                         android:id="@+id/etWeight"
@@ -185,69 +197,71 @@
                         android:inputType="numberDecimal"
                         android:gravity="center"
                         android:background="@null"
-                        android:textSize="18sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
-                        android:textColor="@color/flat_text_primary"/>
+                        android:textColor="#37474F"/>
                     <TextView
                         android:id="@+id/tvUnit"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="kg"
-                        android:textSize="12sp"
+                        android:textSize="13sp"
                         android:textStyle="bold"
-                        android:textColor="@color/flat_text_secondary"
+                        android:textColor="#90A4AE"
                         android:layout_marginStart="4dp"/>
                 </LinearLayout>
-                <Space android:layout_width="8dp" android:layout_height="wrap_content"/>
+
+                <Space android:layout_width="12dp" android:layout_height="wrap_content"/>
+
                 <LinearLayout
                     android:id="@+id/layoutSets"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:background="@drawable/bg_flat_rounded"
-                    android:paddingVertical="6dp">
+                    android:background="@drawable/bg_flat_rounded">
                     <TextView
                         android:id="@+id/tvSets"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         tools:text="4"
-                        android:textSize="18sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
-                        android:textColor="@color/flat_text_primary"/>
+                        android:textColor="#37474F"/>
                     <TextView
                         android:id="@+id/tvSetsLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text=" 组"
-                        android:textSize="12sp"
-                        android:textColor="@color/flat_text_secondary"
+                        android:text="组"
+                        android:textSize="13sp"
+                        android:textColor="#90A4AE"
                         android:layout_marginStart="2dp"/>
                 </LinearLayout>
-                <Space android:layout_width="8dp" android:layout_height="wrap_content"/>
+
+                <Space android:layout_width="12dp" android:layout_height="wrap_content"/>
+
                 <LinearLayout
                     android:id="@+id/layoutReps"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:background="@drawable/bg_flat_rounded"
-                    android:paddingVertical="6dp">
+                    android:background="@drawable/bg_flat_rounded">
                     <TextView
                         android:id="@+id/tvReps"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         tools:text="12"
-                        android:textSize="18sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
-                        android:textColor="@color/flat_text_primary"/>
+                        android:textColor="#37474F"/>
                     <TextView
                         android:id="@+id/tvRepsLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text=" 次"
-                        android:textSize="12sp"
-                        android:textColor="@color/flat_text_secondary"
+                        android:text="次"
+                        android:textSize="13sp"
+                        android:textColor="#90A4AE"
                         android:layout_marginStart="2dp"/>
                 </LinearLayout>
             </LinearLayout>

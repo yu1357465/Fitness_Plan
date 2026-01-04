@@ -47,7 +47,7 @@ public class StatsActivity extends AppCompatActivity {
             List<String> nameList = new ArrayList<>();
 
             for (HistoryEntity item : allHistory) {
-                String name = item.name;
+                String name = item.exerciseName;
 
                 // 如果这是新动作，加入列表
                 if (!groupedMap.containsKey(name)) {
