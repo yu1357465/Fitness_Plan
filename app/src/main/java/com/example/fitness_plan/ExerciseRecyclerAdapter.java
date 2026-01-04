@@ -1,5 +1,6 @@
 package com.example.fitness_plan;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -19,7 +20,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.widget.PopupMenu; // 导入 PopupMenu
+import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
@@ -89,18 +90,18 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void bindItem(ItemViewHolder holder, int position) {
         ExerciseEntity exercise = exerciseList.get(position);
         boolean isGhost = exercise.name.equals("新动作");
 
         if (isGhost) {
-            // >>> 幽灵卡 (Ghost)
+            // >>> 幽灵卡s
             holder.cardNormal.setAlpha(0.5f);
             holder.name.setText("点击输入动作名称...");
             holder.name.setTextColor(Color.GRAY);
             holder.name.setTypeface(null, android.graphics.Typeface.ITALIC);
 
-            // 纯白背景
             holder.cardNormal.setCardBackgroundColor(Color.WHITE);
             holder.cardNormal.setStrokeWidth(0);
             holder.cardNormal.setCardElevation(0f);
@@ -111,19 +112,23 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             holder.layoutSets.setAlpha(0.3f);
             holder.layoutReps.setAlpha(0.3f);
 
-            // 【幽灵卡特权】点击整张卡片 = 重命名 (初始化)
             holder.itemView.setOnClickListener(v -> listener.onRename(exercise));
             holder.itemView.setOnLongClickListener(null);
+            holder.itemView.setOnTouchListener(null);
             if (holder.dragHandle != null) holder.dragHandle.setOnTouchListener(null);
 
         } else {
-            // >>> 正常卡片 (Normal)
+            // >>> 正常卡片
             holder.cardNormal.setAlpha(1.0f);
             holder.name.setTypeface(null, android.graphics.Typeface.BOLD);
             holder.btnPin.setVisibility(View.VISIBLE);
             holder.btnChart.setVisibility(View.VISIBLE);
             holder.layoutSets.setAlpha(1.0f);
             holder.layoutReps.setAlpha(1.0f);
+
+            // 【关键】将 CardView 设为不可点击，让点击事件穿透给 itemView 处理
+            // 这样点击名字、点击卡片背景，都会统一触发 itemView 的 onClick
+            holder.cardNormal.setClickable(false);
 
             boolean isPermanent = (exercise.color == null || exercise.color.equalsIgnoreCase("#FFFFFF"));
             int textColorPrimary;
@@ -136,11 +141,10 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 holder.btnPin.setImageResource(R.drawable.ic_pin_filled);
                 holder.btnPin.setColorFilter(context.getResources().getColor(R.color.flat_accent), PorterDuff.Mode.SRC_IN);
 
-                // 实心边框
                 holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
                 holder.cardNormal.setCardBackgroundColor(Color.WHITE);
                 holder.cardNormal.setCardElevation(4f);
-                holder.cardNormal.setStrokeColor(Color.parseColor("#CFD8DC")); // 蓝灰色实线
+                holder.cardNormal.setStrokeColor(Color.parseColor("#CFD8DC"));
                 holder.cardNormal.setStrokeWidth(3);
 
             } else {
@@ -150,7 +154,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 holder.btnPin.setImageResource(R.drawable.ic_pin_outline);
                 holder.btnPin.setColorFilter(Color.GRAY, PorterDuff.Mode.SRC_IN);
 
-                // 虚线背景，透明CardView
                 holder.cardNormal.setCardBackgroundColor(Color.TRANSPARENT);
                 holder.cardNormal.setCardElevation(0f);
                 holder.cardNormal.setStrokeWidth(0);
@@ -163,7 +166,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             holder.reps.setTextColor(textColorPrimary);
             holder.unit.setTextColor(textColorSecondary);
 
-            // 完成状态
             if (exercise.isCompleted) {
                 holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
                 holder.cardNormal.setCardBackgroundColor(Color.parseColor("#E0F2F1"));
@@ -176,7 +178,16 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 setStrikeThrough(holder.name, false);
             }
 
-            // 1. 点击整张卡片 (包含名字区域) -> 切换完成状态
+            // 1. 触摸监听：记录坐标 (为了在哪按在哪弹)
+            holder.itemView.setOnTouchListener((v, event) -> {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    holder.lastTouchX = event.getX();
+                    holder.lastTouchY = event.getY();
+                }
+                return false;
+            });
+
+            // 2. 点击：完成切换 (因为 cardNormal 不可点了，所以点击卡片任何位置都会到这里)
             holder.itemView.setOnClickListener(v -> {
                 exercise.isCompleted = !exercise.isCompleted;
                 listener.onUpdate(exercise);
@@ -184,26 +195,31 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 notifyItemChanged(position);
             });
 
-            // 2. 长按 -> 弹出菜单 (包含：修改名称、删除)
+            // 3. 长按：移动锚点并弹出菜单
             holder.itemView.setOnLongClickListener(v -> {
-                showPopupMenu(v, exercise);
+                holder.popupAnchor.setX(holder.lastTouchX);
+                holder.popupAnchor.setY(holder.lastTouchY);
+                showPopupMenu(holder.popupAnchor, exercise);
                 return true;
             });
 
-            // 3. 拖拽把手
+            // 4. 拖拽把手
             if (holder.dragHandle != null) {
                 holder.dragHandle.setOnTouchListener((v, event) -> {
                     if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
                         listener.onStartDrag(holder);
                     }
-                    return false;
+                    return false; // 这里必须是false，不然影响Ripple效果
                 });
             }
         }
 
-        // --- 数据填充 (保持不变) ---
+        // --- 通用数据填充 ---
         holder.name.setText(exercise.name);
         holder.btnPin.setOnClickListener(v -> listener.onTogglePin(exercise));
+
+        // 【关键】这里删除了 holder.name.setOnClickListener ...
+        // 这样点击名字就不会弹出编辑框了，而是触发 itemView 的 onClick (切换完成状态)
 
         holder.sets.setText(String.valueOf(exercise.sets));
         holder.reps.setText(String.valueOf(exercise.reps));
@@ -248,29 +264,12 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             });
         }
     }
-    private void updateCardAppearance(ItemViewHolder holder, ExerciseEntity exercise) {
-        if (exercise.isCompleted) {
-            holder.cardNormal.setCardBackgroundColor(Color.parseColor("#E0F2F1"));
-            holder.name.setAlpha(0.6f);
-            setStrikeThrough(holder.name, true);
-        } else {
-            String colorHex = (exercise.color != null) ? exercise.color : "#FFFFFF";
-            try {
-                holder.cardNormal.setCardBackgroundColor(Color.parseColor(colorHex));
-            } catch (Exception e) {
-                holder.cardNormal.setCardBackgroundColor(Color.WHITE);
-            }
-            holder.name.setAlpha(1.0f);
-            setStrikeThrough(holder.name, false);
-        }
-    }
 
-    // 更新后的弹窗菜单逻辑
-    private void showPopupMenu(View view, ExerciseEntity exercise) {
-        PopupMenu popup = new PopupMenu(context, view, Gravity.END);
+    private void showPopupMenu(View anchorView, ExerciseEntity exercise) {
+        // 这里的 anchorView 是我们移动到手指位置的 dummy view
+        PopupMenu popup = new PopupMenu(context, anchorView, Gravity.NO_GRAVITY);
 
-        // 添加菜单项 (groupId, itemId, order, title)
-        popup.getMenu().add(0, 1, 0, "修改名称"); // 新增选项
+        popup.getMenu().add(0, 1, 0, "修改名称");
         popup.getMenu().add(0, 2, 1, "删除动作");
 
         popup.setOnMenuItemClickListener(item -> {
@@ -279,7 +278,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 listener.onDelete(exercise);
                 return true;
             } else if (title.equals("修改名称")) {
-                // 调用重命名逻辑
                 listener.onRename(exercise);
                 return true;
             }
@@ -362,9 +360,18 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         ImageView dragHandle;
         TextWatcher weightWatcher;
 
+        // 【新增】隐形锚点和坐标记录
+        View popupAnchor;
+        float lastTouchX = 0f;
+        float lastTouchY = 0f;
+
         ItemViewHolder(View itemView) {
             super(itemView);
             cardNormal = itemView.findViewById(R.id.cardNormal);
+
+            // 绑定隐形 View
+            popupAnchor = itemView.findViewById(R.id.popupAnchor);
+
             name = itemView.findViewById(R.id.tvExerciseName);
             layoutSets = itemView.findViewById(R.id.layoutSets);
             layoutReps = itemView.findViewById(R.id.layoutReps);

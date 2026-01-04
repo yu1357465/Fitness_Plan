@@ -305,18 +305,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    //  逻辑 C：重命名 (BottomSheetDialog + 亮度调节)
+    //  逻辑 C：重命名 (丝滑键盘版)
+    //  解决：键盘弹起导致底部栏闪烁、布局跳动的问题
     // =========================================================
     private void showRenameDialog(ExerciseEntity exercise) {
+        // 1. 创建 Dialog
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, com.google.android.material.R.style.Theme_Design_BottomSheetDialog);
-
         View view = getLayoutInflater().inflate(R.layout.dialog_bottom_sheet_rename, null);
         bottomSheetDialog.setContentView(view);
 
-        // 【新增】调节背景变暗程度 (0.0 - 1.0)
-        // 0.3f 比较柔和，不会让眼睛不适
+        // 2. 【核心优化】设置窗口模式
         if (bottomSheetDialog.getWindow() != null) {
             bottomSheetDialog.getWindow().setDimAmount(0.0f);
+            // 使用 ADJUST_RESIZE：让键盘盖在内容上或者压缩内容高度，而不是把整个窗口顶上去
+            // 配合下面的 STATE_EXPANDED 使用效果最佳
+            bottomSheetDialog.getWindow().setSoftInputMode(
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE |
+                            android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+            );
         }
 
         android.widget.EditText etInput = view.findViewById(R.id.etRenameInput);
@@ -344,7 +350,6 @@ public class MainActivity extends AppCompatActivity {
 
                 executorService.execute(() -> {
                     workoutDao.update(exercise);
-
                     if (isGhost && defaultAddToPlan) {
                         PlanEntity activePlan = workoutDao.getActivePlan();
                         if (activePlan != null && currentPlanName != null) {
@@ -357,8 +362,7 @@ public class MainActivity extends AppCompatActivity {
                             template.sortOrder = exercise.sortOrder;
                             workoutDao.insertTemplate(template);
                         }
-                    }
-                    else {
+                    } else {
                         boolean isPermanent = exercise.color == null || exercise.color.equalsIgnoreCase("#FFFFFF");
                         if (isPermanent) {
                             workoutDao.smartRename(oldName, newName);
@@ -378,12 +382,28 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 3. 【核心优化】界面显示后的处理 (锁定状态 + 丝滑弹键盘)
         bottomSheetDialog.setOnShowListener(dialog -> {
-            etInput.requestFocus();
-            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-            if (imm != null) {
-                imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
+            BottomSheetDialog d = (BottomSheetDialog) dialog;
+
+            // A. 锁定 BottomSheet 状态为 EXPANDED (全展开)
+            // 这样键盘弹起时，Sheet 本身不会试图去计算高度，从而避免了"跳动"
+            android.widget.FrameLayout bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                com.google.android.material.bottomsheet.BottomSheetBehavior<View> behavior =
+                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+                behavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
+                behavior.setSkipCollapsed(true); // 禁止折叠
             }
+
+            // B. 延时聚焦，等待布局稳定
+            etInput.requestFocus();
+            etInput.postDelayed(() -> {
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
+                }
+            }, 100); // 100ms 延时足够让 UI 渲染完毕，肉眼感觉不到卡顿，但能消除闪烁
         });
 
         bottomSheetDialog.show();
