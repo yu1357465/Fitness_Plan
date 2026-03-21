@@ -21,26 +21,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // ⭐⭐ 关键修改：必须加载包含 ViewPager2 的那个容器布局 ⭐⭐
         setContentView(R.layout.activity_main);
+
+        // 状态栏美化
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                            android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        }
 
         viewPager = findViewById(R.id.viewPager);
 
-        // 如果 viewPager 还是 null，说明 activity_main.xml 里没写 ViewPager2
         if (viewPager == null) {
             throw new RuntimeException("严重错误：在 activity_main.xml 中找不到 id 为 viewPager 的控件！");
         }
 
-        // 1. 设置 Adapter
         pagerAdapter = new MainPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
-
-        // 2. 核心设置：默认选中中间页 (Index 1)
         viewPager.setCurrentItem(1, false);
-
-        // 3. 预加载设置
-        viewPager.setOffscreenPageLimit(2);
+        viewPager.setOffscreenPageLimit(2); // 维持 2 个缓存即可
     }
 
     private static class MainPagerAdapter extends FragmentStateAdapter {
@@ -51,21 +51,17 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return 3;
+            return 3; // ⭐ 变回 3 页
         }
 
         @NonNull
         @Override
         public Fragment createFragment(int position) {
             switch (position) {
-                case 0:
-                    return new LibraryFragment();
-                case 1:
-                    return new WorkoutFragment();
-                case 2:
-                    return new HistoryFragment();
-                default:
-                    return new WorkoutFragment();
+                case 0: return new LibraryFragment();
+                case 1: return new WorkoutFragment();
+                case 2: return new HistoryFragment();
+                default: return new WorkoutFragment();
             }
         }
     }

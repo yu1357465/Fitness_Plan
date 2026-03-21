@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -8,19 +9,63 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:background="@android:color/white"
-        android:text="力量进阶分析"
-        android:textSize="20sp"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="12dp"
+        android:text="六边形战力中心"
+        android:textSize="28sp"
         android:textStyle="bold"
-        android:textColor="#333333"
-        android:elevation="4dp"/>
+        android:textColor="#212121" />
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="12dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@android:color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="肌肉均衡诊断雷达"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#757575"
+                android:layout_marginBottom="8dp"/>
+
+            <com.github.mikephil.charting.charts.RadarChart
+                android:id="@+id/radarChart"
+                android:layout_width="match_parent"
+                android:layout_height="350dp" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp"
+        android:text="各部位极限库与天赋洞察"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#9E9E9E"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/statsRecyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:paddingTop="8dp"
-        android:clipToPadding="false"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp"/>
 
 </LinearLayout>

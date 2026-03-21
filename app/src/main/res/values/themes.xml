@@ -1,11 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Fitness_Plan" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/flat_primary</item>
-        <item name="colorPrimaryVariant">@color/flat_background</item> <item name="colorOnPrimary">@color/flat_text_primary</item> <item name="android:statusBarColor">@color/flat_background</item>
-        <item name="android:windowLightStatusBar">true</item> <item name="android:windowBackground">@color/flat_background</item>
+        <item name="colorPrimaryVariant">@color/flat_background</item>
+        <item name="colorOnPrimary">@color/flat_text_primary</item>
+        <item name="android:statusBarColor">@color/flat_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/flat_background</item>
     </style>
 
-    <style name="RoundedDialog" parent="Theme.AppCompat.Light.Dialog.Alert">
+    <style name="RoundedDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
         <item name="android:windowBackground">@drawable/bg_flat_rounded</item>
     </style>
 

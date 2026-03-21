@@ -1,5 +1,7 @@
 package com.example.fitness_plan.ui.library;
 
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,8 +22,8 @@ public class LibraryAdapter extends RecyclerView.Adapter<LibraryAdapter.LibraryV
     private final OnItemClickListener listener;
 
     public interface OnItemClickListener {
-        void onItemClick(ExerciseBaseEntity entity); // 点击 (暂无动作，可预留)
-        void onItemLongClick(ExerciseBaseEntity entity); // 长按 (编辑/删除)
+        void onItemClick(ExerciseBaseEntity entity);
+        void onItemLongClick(ExerciseBaseEntity entity);
     }
 
     public LibraryAdapter(OnItemClickListener listener) {
@@ -36,27 +38,73 @@ public class LibraryAdapter extends RecyclerView.Adapter<LibraryAdapter.LibraryV
     @NonNull
     @Override
     public LibraryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // 复用之前的 item_exercise_card 布局，或者新建一个简单的 item_library_card
-        // 这里为了省事，我们直接用代码生成一个简单的布局，或者你可以用 item_exercise_card
-        // 建议新建 item_library_card.xml，内容如下：
-        /*
-        <LinearLayout ... padding="16dp" orientation="vertical">
-             <TextView id="@+id/tvName" textSize="18sp" bold .../>
-             <TextView id="@+id/tvCategory" textSize="12sp" color="#Grey" .../>
-        </LinearLayout>
-        */
-        // 这里演示使用简单的 inflate，假设你用 android.R.layout.simple_list_item_2 或者自己建布局
-        // 为了视觉效果，我建议你复用现有的 card 布局，或者新建一个简单的：
-        View view = LayoutInflater.from(parent.getContext()).inflate(android.R.layout.simple_list_item_2, parent, false);
+        // ⭐ 替换为我们刚刚手写的精美卡片布局
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_library_card, parent, false);
         return new LibraryViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull LibraryViewHolder holder, int position) {
         ExerciseBaseEntity item = list.get(position);
-        holder.tvName.setText(item.name);
-        holder.tvCategory.setText(item.category + " | 默认单位: " + item.defaultUnit);
 
+        // 1. 设置名字
+        holder.tvName.setText(item.name);
+
+        // 2. 提取底层英文 Category
+        String rawCategory = item.category != null ? item.category : "Other";
+
+        // 3. ⭐ 核心渲染：翻译并涂色
+        String displayName;
+        int badgeColor;
+
+        switch (rawCategory) {
+            case "Chest":
+                displayName = "胸部";
+                badgeColor = Color.parseColor("#1E88E5"); // 战神蓝
+                break;
+            case "Back":
+                displayName = "背部";
+                badgeColor = Color.parseColor("#43A047"); // 宽厚绿
+                break;
+            case "Legs&Glutes":
+                displayName = "腿臀";
+                badgeColor = Color.parseColor("#F4511E"); // 爆发橙
+                break;
+            case "Shoulders":
+                displayName = "肩部";
+                badgeColor = Color.parseColor("#8E24AA"); // 倒三角紫
+                break;
+            case "Arms":
+                displayName = "手臂";
+                badgeColor = Color.parseColor("#E53935"); // 充血红
+                break;
+            case "Core":
+                displayName = "核心";
+                badgeColor = Color.parseColor("#FDD835"); // 核心金
+                holder.tvCategoryBadge.setTextColor(Color.parseColor("#424242")); // 金底黑字更清楚
+                break;
+            default:
+                displayName = "其他";
+                badgeColor = Color.parseColor("#9E9E9E"); // 边缘灰
+                holder.tvCategoryBadge.setTextColor(Color.WHITE); // 恢复白字
+                break;
+        }
+
+        // 如果不是核心金，统一用白字
+        if (!rawCategory.equals("Core")) {
+            holder.tvCategoryBadge.setTextColor(Color.WHITE);
+        }
+
+        holder.tvCategoryBadge.setText(displayName);
+
+        // ⭐ 无中生有：用纯代码捏出一个带有 16dp 圆角的纯色背景，贴到 TextView 上
+        GradientDrawable shape = new GradientDrawable();
+        shape.setShape(GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(16f * holder.itemView.getContext().getResources().getDisplayMetrics().density); // 动态转换为像素
+        shape.setColor(badgeColor);
+        holder.tvCategoryBadge.setBackground(shape);
+
+        // 4. 绑定点击事件
         holder.itemView.setOnClickListener(v -> listener.onItemClick(item));
         holder.itemView.setOnLongClickListener(v -> {
             listener.onItemLongClick(item);
@@ -70,16 +118,12 @@ public class LibraryAdapter extends RecyclerView.Adapter<LibraryAdapter.LibraryV
     }
 
     static class LibraryViewHolder extends RecyclerView.ViewHolder {
-        TextView tvName, tvCategory;
+        TextView tvName, tvCategoryBadge;
 
         public LibraryViewHolder(@NonNull View itemView) {
             super(itemView);
-            // 对应 simple_list_item_2 的 ID
-            tvName = itemView.findViewById(android.R.id.text1);
-            tvCategory = itemView.findViewById(android.R.id.text2);
-
-            tvName.setTextSize(18);
-            tvName.setPadding(0, 10, 0, 0);
+            tvName = itemView.findViewById(R.id.tvName);
+            tvCategoryBadge = itemView.findViewById(R.id.tvCategoryBadge);
         }
     }
 }

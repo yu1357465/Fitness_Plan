@@ -31,6 +31,8 @@ import com.example.fitness_plan.HistoryActivity;
 import com.example.fitness_plan.PlanListActivity;
 import com.example.fitness_plan.R;
 import com.example.fitness_plan.SettingsActivity;
+import com.example.fitness_plan.StatsActivity;
+import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.EntityNameCache;
 import com.example.fitness_plan.data.ExerciseBaseEntity;
@@ -126,17 +128,9 @@ public class WorkoutFragment extends Fragment {
         view.findViewById(R.id.btnSettings).setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), SettingsActivity.class)));
 
-        // ✅ 核心修复：历史页按钮点击事件 (纯净版)
-        view.findViewById(R.id.btnHistory).setOnClickListener(v -> {
-            if (getActivity() != null) {
-                // 直接找到宿主 MainActivity 的 ViewPager2
-                ViewPager2 vp = getActivity().findViewById(R.id.viewPager);
-                if (vp != null) {
-                    // 切换到第 3 页 (Index 为 2)，true 表示开启丝滑的平移过渡动画
-                    vp.setCurrentItem(2, true);
-                }
-            }
-        });
+        // ⭐ 终极重构：将右下角按钮直接连通硬核数据分析中心 (StatsActivity)
+        view.findViewById(R.id.btnHistory).setOnClickListener(v ->
+                startActivity(new Intent(requireContext(), StatsActivity.class)));
 
         view.findViewById(R.id.planSelectionContainer).setOnClickListener(v -> {
             toggleArrow(ivPlanArrow);
@@ -499,11 +493,33 @@ public class WorkoutFragment extends Fragment {
         });
     }
 
-    // ⭐ 核心方法：点击绿色加号后触发的新逻辑
+    // ⭐ 核心方法：带【雷达图肌群分类】的新建弹窗
     private void showAddDialog() {
         if (getContext() == null) return;
+
+        // 1. 创建一个纵向的容器
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(50, 20, 50, 0);
+
+        // 2. 动作名称输入框
         android.widget.EditText input = new android.widget.EditText(requireContext());
         input.setHint("输入动作名称 (如: 哑铃弯举)");
+        layout.addView(input);
+
+        // 3. 提示文字
+        TextView tvLabel = new TextView(requireContext());
+        tvLabel.setText("选择目标肌群 (用于雷达图分析):");
+        tvLabel.setPadding(0, 30, 0, 10);
+        tvLabel.setTextColor(Color.parseColor("#757575"));
+        layout.addView(tvLabel);
+
+        // 4. 雷达图的 6 大唯独下拉框
+        android.widget.Spinner spinner = new android.widget.Spinner(requireContext());
+        String[] muscleGroups = {"胸部 (Chest)", "背部 (Back)", "腿臀 (Legs&Glutes)", "肩部 (Shoulders)", "手臂 (Arms)", "核心 (Core)", "其他 (Other)"};
+        android.widget.ArrayAdapter<String> spinnerAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, muscleGroups);
+        spinner.setAdapter(spinnerAdapter);
+        layout.addView(spinner);
 
         input.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
@@ -513,33 +529,37 @@ public class WorkoutFragment extends Fragment {
                 });
             }
         });
-        input.requestFocus();
 
         new AlertDialog.Builder(requireContext())
-                .setTitle("添加今日动作")
-                .setView(input)
+                .setTitle("添加新动作")
+                .setView(layout)
                 .setPositiveButton("添加", (dialog, which) -> {
                     String name = input.getText().toString().trim();
+                    // 提取下拉框中括号里的英文作为底层 category (如 Chest)
+                    String selectedCategory = spinner.getSelectedItem().toString();
+                    String dbCategory = selectedCategory.contains("(") ?
+                            selectedCategory.substring(selectedCategory.indexOf("(") + 1, selectedCategory.indexOf(")")) : "Other";
+
                     if (!name.isEmpty()) {
                         executorService.execute(() -> {
-                            // 查重并自动在动作库创建
+                            // 查重并自动在动作库创建，⭐ 这里征用了 category 字段！
                             ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(name);
                             if (base == null) {
-                                base = new ExerciseBaseEntity(name, "kg", "未分类");
+                                base = new ExerciseBaseEntity(name, "kg", dbCategory);
                                 long baseId = workoutDao.insertExerciseBase(base);
                                 base.baseId = baseId;
+                            } else {
+                                // 如果动作存在，顺手把它的分类更新一下
+                                base.category = dbCategory;
+                                workoutDao.updateExerciseBase(base);
                             }
 
-                            // 确定当前已有动作数量，用作排序字段 (sortOrder)
                             int sortOrder = workoutDao.getAllExercises().size();
-
-                            // 创建真实的今日训练记录 (默认 4组 x 12次)
                             ExerciseEntity exercise = new ExerciseEntity(base.baseId, 20.0, 4, 12, false);
                             exercise.sortOrder = sortOrder;
 
-                            // 判断是否自动加入计划模板
                             if (defaultAddToPlan) {
-                                exercise.color = "#FFFFFF"; // 永久卡片颜色
+                                exercise.color = "#FFFFFF";
                                 PlanEntity activePlan = workoutDao.getActivePlan();
                                 if (activePlan != null && currentPlanName != null) {
                                     TemplateEntity template = new TemplateEntity();
@@ -552,7 +572,7 @@ public class WorkoutFragment extends Fragment {
                                     workoutDao.insertTemplate(template);
                                 }
                             } else {
-                                exercise.color = "#FFF9C4"; // 临时卡片颜色
+                                exercise.color = "#FFF9C4";
                             }
 
                             workoutDao.insert(exercise);
@@ -562,6 +582,7 @@ public class WorkoutFragment extends Fragment {
                 })
                 .setNegativeButton("取消", null)
                 .show();
+        input.requestFocus();
     }
 
     // =========================================================

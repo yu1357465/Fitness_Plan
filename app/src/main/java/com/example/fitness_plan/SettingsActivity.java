@@ -40,6 +40,8 @@ public class SettingsActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private WorkoutDao workoutDao;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private com.google.android.material.textfield.TextInputEditText etHeight, etWingspan, etBodyWeight;
+    private android.widget.Button btnSaveBodyMetrics;
 
     // 【只保留恢复数据的 Launcher】备份和导出现在是静默的，不需要 Launcher
     private ActivityResultLauncher<Intent> restoreLauncher;
@@ -59,6 +61,63 @@ public class SettingsActivity extends AppCompatActivity {
 
         workoutDao = AppDatabase.getDatabase(this).workoutDao();
         prefs = getSharedPreferences("fitness_prefs", MODE_PRIVATE);
+
+        // ============================================================
+        //  新增：初始化身体维度模块
+        // ============================================================
+        etHeight = findViewById(R.id.etHeight);
+        etWingspan = findViewById(R.id.etWingspan);
+        etBodyWeight = findViewById(R.id.etBodyWeight);
+        btnSaveBodyMetrics = findViewById(R.id.btnSaveBodyMetrics);
+
+        // A. 读取已保存的数据（如果有的话，默认为空字符串或 0）
+        float savedHeight = prefs.getFloat("USER_HEIGHT_CM", 0f);
+        float savedWingspan = prefs.getFloat("USER_WINGSPAN_CM", 0f);
+        float savedWeight = prefs.getFloat("USER_BODY_WEIGHT_KG", 0f);
+
+        // 格式化：如果是 0 就不显示（留空让用户填），否则去掉多余的 ".0"
+        if (savedHeight > 0) etHeight.setText(String.valueOf(savedHeight).replace(".0", ""));
+        if (savedWingspan > 0) etWingspan.setText(String.valueOf(savedWingspan).replace(".0", ""));
+        if (savedWeight > 0) etBodyWeight.setText(String.valueOf(savedWeight).replace(".0", ""));
+
+        // B. 点击保存按钮的逻辑
+        btnSaveBodyMetrics.setOnClickListener(v -> {
+            try {
+                // 读取输入框的文字
+                String hStr = etHeight.getText() != null ? etHeight.getText().toString().trim() : "";
+                String wStr = etWingspan.getText() != null ? etWingspan.getText().toString().trim() : "";
+                String bwStr = etBodyWeight.getText() != null ? etBodyWeight.getText().toString().trim() : "";
+
+                // 转换成数字（如果为空则存 0）
+                float height = hStr.isEmpty() ? 0f : Float.parseFloat(hStr);
+                float wingspan = wStr.isEmpty() ? 0f : Float.parseFloat(wStr);
+                float bodyWeight = bwStr.isEmpty() ? 0f : Float.parseFloat(bwStr);
+
+                // 简单的防呆校验：防止身高 3 米这种离谱数据破坏后续的算法
+                if (height > 250 || wingspan > 250 || bodyWeight > 300) {
+                    Toast.makeText(this, "输入的数据似乎有些惊人，请检查是否填错了单位", Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                // 存入 SharedPreferences
+                prefs.edit()
+                        .putFloat("USER_HEIGHT_CM", height)
+                        .putFloat("USER_WINGSPAN_CM", wingspan)
+                        .putFloat("USER_BODY_WEIGHT_KG", bodyWeight)
+                        .apply();
+
+                // 为了防呆，保存完收起系统软键盘
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(Activity.INPUT_METHOD_SERVICE);
+                if (imm != null && getCurrentFocus() != null) {
+                    imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
+                }
+
+                Toast.makeText(this, "身体维度数据已保存！", Toast.LENGTH_SHORT).show();
+
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "格式错误，请确保只输入数字和小数点", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // 初始化控件
         unitRadioGroup = findViewById(R.id.unitRadioGroup);

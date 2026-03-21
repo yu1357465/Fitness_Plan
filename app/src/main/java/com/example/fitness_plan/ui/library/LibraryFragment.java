@@ -7,7 +7,12 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -36,8 +41,10 @@ public class LibraryFragment extends Fragment {
     private WorkoutDao workoutDao;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    // 保存完整数据用于搜索过滤
     private List<ExerciseBaseEntity> allExercises = new ArrayList<>();
+
+    // ⭐ 雷达图标准肌群字典
+    private final String[] MUSCLE_GROUPS = {"胸部 (Chest)", "背部 (Back)", "腿臀 (Legs&Glutes)", "肩部 (Shoulders)", "手臂 (Arms)", "核心 (Core)", "其他 (Other)"};
 
     public LibraryFragment() {
         // Required empty public constructor
@@ -64,7 +71,6 @@ public class LibraryFragment extends Fragment {
         adapter = new LibraryAdapter(new LibraryAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(ExerciseBaseEntity entity) {
-                // 点击动作，可以弹窗显示详细信息，或者留空
                 showEditDialog(entity);
             }
 
@@ -75,7 +81,6 @@ public class LibraryFragment extends Fragment {
         });
         recyclerView.setAdapter(adapter);
 
-        // 监听搜索框
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -100,14 +105,9 @@ public class LibraryFragment extends Fragment {
 
     private void loadData() {
         executorService.execute(() -> {
-            // 获取所有未删除的动作 (排除占位符)
             allExercises = workoutDao.getAllActiveExerciseBases();
-
             if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> {
-                    // 初始显示全部，或者应用当前的搜索词
-                    filterList(etSearch.getText().toString());
-                });
+                getActivity().runOnUiThread(() -> filterList(etSearch.getText().toString()));
             }
         });
     }
@@ -120,8 +120,10 @@ public class LibraryFragment extends Fragment {
 
         List<ExerciseBaseEntity> filtered = new ArrayList<>();
         for (ExerciseBaseEntity item : allExercises) {
+            // 兼容防呆：防止老数据 category 为空导致崩溃
+            String cat = item.category != null ? item.category : "";
             if (item.name.toLowerCase().contains(query.toLowerCase()) ||
-                    item.category.contains(query)) {
+                    cat.toLowerCase().contains(query.toLowerCase())) {
                 filtered.add(item);
             }
         }
@@ -129,15 +131,11 @@ public class LibraryFragment extends Fragment {
     }
 
     // ==========================================
-    //  核心逻辑：编辑与重命名 (影响全局)
+    //  核心逻辑：编辑动作 (已升级下拉框)
     // ==========================================
     private void showEditDialog(ExerciseBaseEntity entity) {
-        // 简单复用之前的 Dialog 逻辑，或者新建一个更详细的编辑框
-        // 这里允许修改 Name, Category, DefaultUnit
-
-        // 1. 构造简单的布局 (实际开发建议写个 dialog_edit_library.xml)
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        LinearLayout layout = new LinearLayout(requireContext());
+        layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(50, 40, 50, 40);
 
         final EditText etName = new EditText(requireContext());
@@ -145,26 +143,48 @@ public class LibraryFragment extends Fragment {
         etName.setText(entity.name);
         layout.addView(etName);
 
-        final EditText etCategory = new EditText(requireContext());
-        etCategory.setHint("分类 (如: 胸部)");
-        etCategory.setText(entity.category);
-        layout.addView(etCategory);
+        TextView tvLabel = new TextView(requireContext());
+        tvLabel.setText("目标肌群 (用于雷达图):");
+        tvLabel.setPadding(0, 30, 0, 10);
+        tvLabel.setTextColor(android.graphics.Color.parseColor("#757575"));
+        layout.addView(tvLabel);
+
+        // ⭐ 替换为 Spinner 下拉框
+        final Spinner spinner = new Spinner(requireContext());
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, MUSCLE_GROUPS);
+        spinner.setAdapter(spinnerAdapter);
+        layout.addView(spinner);
+
+        // 逆向匹配：根据数据库里的纯英文，在下拉菜单中找到对应的中文并选中
+        String currentCat = entity.category != null ? entity.category : "Other";
+        int selectedIndex = MUSCLE_GROUPS.length - 1; // 默认选中 Other
+        for (int i = 0; i < MUSCLE_GROUPS.length; i++) {
+            if (MUSCLE_GROUPS[i].contains("(" + currentCat + ")") ||
+                    (currentCat.equals("Other") && MUSCLE_GROUPS[i].contains("其他"))) {
+                selectedIndex = i;
+                break;
+            }
+        }
+        spinner.setSelection(selectedIndex);
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("编辑动作")
                 .setView(layout)
                 .setPositiveButton("保存", (dialog, which) -> {
                     String newName = etName.getText().toString().trim();
-                    String newCat = etCategory.getText().toString().trim();
+                    // 正向提取：截取括号里的纯英文存入数据库
+                    String selectedText = spinner.getSelectedItem().toString();
+                    String newCat = selectedText.contains("(") ?
+                            selectedText.substring(selectedText.indexOf("(") + 1, selectedText.indexOf(")")) : "Other";
+
                     if (!newName.isEmpty()) {
                         updateExercise(entity, newName, newCat);
                     }
                 })
                 .setNegativeButton("删除", (dialog, which) -> {
-                    // 再次确认删除
                     new AlertDialog.Builder(requireContext())
                             .setTitle("确认删除 " + entity.name + "?")
-                            .setMessage("历史数据将保留，但该动作将不再出现在选择列表中。")
+                            .setMessage("历史打卡数据将保留，但该动作将从备选库中永久移除。")
                             .setPositiveButton("确认删除", (d, w) -> deleteExercise(entity))
                             .setNegativeButton("取消", null)
                             .show();
@@ -179,13 +199,12 @@ public class LibraryFragment extends Fragment {
             entity.category = newCat;
             workoutDao.updateExerciseBase(entity);
 
-            // ⭐ 关键：更新缓存，否则主页显示旧名字
             EntityNameCache.getInstance().updateCache(entity.baseId, newName);
 
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
                     Toast.makeText(requireContext(), "更新成功", Toast.LENGTH_SHORT).show();
-                    loadData(); // 刷新列表
+                    loadData();
                 });
             }
         });
@@ -194,44 +213,73 @@ public class LibraryFragment extends Fragment {
     private void deleteExercise(ExerciseBaseEntity entity) {
         executorService.execute(() -> {
             workoutDao.softDeleteExercise(entity.baseId);
-
-            // 缓存中移除 (或者保留但标记，这里直接移除即可)
-            // EntityNameCache.getInstance().remove(entity.baseId);
-
             if (getActivity() != null) {
                 getActivity().runOnUiThread(() -> {
                     Toast.makeText(requireContext(), "已删除", Toast.LENGTH_SHORT).show();
-                    loadData(); // 刷新列表
+                    loadData();
                 });
             }
         });
     }
 
+    // ==========================================
+    //  核心逻辑：新建动作 (已升级下拉框)
+    // ==========================================
     private void showAddDialog() {
+        LinearLayout layout = new LinearLayout(requireContext());
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(50, 40, 50, 40);
+
         final EditText input = new EditText(requireContext());
-        input.setHint("动作名称");
+        input.setHint("动作名称 (如: 杠铃划船)");
+        layout.addView(input);
+
+        TextView tvLabel = new TextView(requireContext());
+        tvLabel.setText("目标肌群 (用于雷达图):");
+        tvLabel.setPadding(0, 30, 0, 10);
+        tvLabel.setTextColor(android.graphics.Color.parseColor("#757575"));
+        layout.addView(tvLabel);
+
+        final Spinner spinner = new Spinner(requireContext());
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, MUSCLE_GROUPS);
+        spinner.setAdapter(spinnerAdapter);
+        layout.addView(spinner);
+
+        // 自动弹出软键盘
+        input.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                input.post(() -> {
+                    InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+                });
+            }
+        });
 
         new AlertDialog.Builder(requireContext())
                 .setTitle("新建标准动作")
-                .setView(input)
+                .setView(layout)
                 .setPositiveButton("添加", (dialog, which) -> {
                     String name = input.getText().toString().trim();
+                    String selectedText = spinner.getSelectedItem().toString();
+                    String dbCategory = selectedText.contains("(") ?
+                            selectedText.substring(selectedText.indexOf("(") + 1, selectedText.indexOf(")")) : "Other";
+
                     if (!name.isEmpty()) {
                         executorService.execute(() -> {
-                            // 查重
                             if (workoutDao.getExerciseBaseByName(name) != null) {
-                                if(getActivity()!=null) getActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "动作已存在", Toast.LENGTH_SHORT).show());
+                                if(getActivity()!=null) getActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "动作已存在，请勿重复添加", Toast.LENGTH_SHORT).show());
                                 return;
                             }
 
-                            ExerciseBaseEntity newBase = new ExerciseBaseEntity(name, "kg", "未分类");
+                            // ⭐ 创建实体时，写入标准的英文 Category
+                            ExerciseBaseEntity newBase = new ExerciseBaseEntity(name, "kg", dbCategory);
                             workoutDao.insertExerciseBase(newBase);
 
                             if (getActivity() != null) {
                                 getActivity().runOnUiThread(() -> {
                                     Toast.makeText(requireContext(), "添加成功", Toast.LENGTH_SHORT).show();
                                     loadData();
-                                    etSearch.setText(""); // 清空搜索以便看到新动作
+                                    etSearch.setText("");
                                 });
                             }
                         });
@@ -239,5 +287,7 @@ public class LibraryFragment extends Fragment {
                 })
                 .setNegativeButton("取消", null)
                 .show();
+
+        input.requestFocus();
     }
 }
