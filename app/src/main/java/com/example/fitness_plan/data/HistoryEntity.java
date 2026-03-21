@@ -1,10 +1,24 @@
 package com.example.fitness_plan.data;
 
 import androidx.room.Entity;
+import androidx.room.ForeignKey;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-// 【关键】表名必须是 history_table，为了匹配你的 DAO
-@Entity(tableName = "history_table")
+/**
+ * 历史记录实体 - 重构版
+ * 使用 baseId 引用动作库，不再直接存储动作名称
+ */
+@Entity(
+    tableName = "history_table",
+    foreignKeys = @ForeignKey(
+        entity = ExerciseBaseEntity.class,
+        parentColumns = "baseId",
+        childColumns = "baseId",
+        onDelete = ForeignKey.NO_ACTION  // 保留历史记录，即使动作被删除
+    ),
+    indices = {@Index("baseId"), @Index("date")}  // 提升查询性能
+)
 public class HistoryEntity {
     @PrimaryKey(autoGenerate = true)
     public int id;
@@ -13,16 +27,17 @@ public class HistoryEntity {
     public String dateStr;      // 显示用日期，如 "2023年10月27日"
     public String workoutName;  // 计划名，如 "推力日"
 
-    public String exerciseName; // 动作名
+    public long baseId;         // 【重构】引用动作库的ID
     public double weight;
     public int reps;
     public int sets;
 
-    public HistoryEntity(long date, String dateStr, String workoutName, String exerciseName, double weight, int reps, int sets) {
+    // 【重构】新构造函数
+    public HistoryEntity(long date, String dateStr, String workoutName, long baseId, double weight, int reps, int sets) {
         this.date = date;
         this.dateStr = dateStr;
         this.workoutName = workoutName;
-        this.exerciseName = exerciseName;
+        this.baseId = baseId;
         this.weight = weight;
         this.reps = reps;
         this.sets = sets;

@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.fitness_plan.data.AppDatabase;
+import com.example.fitness_plan.data.EntityNameCache;
 import com.example.fitness_plan.data.ExerciseEntity;
 import com.example.fitness_plan.data.PlanEntity;
 import com.example.fitness_plan.data.TemplateEntity;
@@ -218,7 +219,7 @@ public class PlanListActivity extends AppCompatActivity {
                 String firstDay = days.get(0);
                 List<TemplateEntity> templates = workoutDao.getTemplatesByPlanAndDay(selectedPlan.planId, firstDay);
                 for (TemplateEntity temp : templates) {
-                    ExerciseEntity ex = new ExerciseEntity(temp.exerciseName, temp.defaultWeight, temp.defaultReps, temp.defaultSets, false);
+                    ExerciseEntity ex = new ExerciseEntity(temp.baseId, temp.defaultWeight, temp.defaultReps, temp.defaultSets, false);
                     workoutDao.insert(ex);
                 }
             }
@@ -261,7 +262,7 @@ public class PlanListActivity extends AppCompatActivity {
             for (TemplateEntity temp : sourceTemplates) {
                 TemplateEntity newTemp = new TemplateEntity(
                         targetPlan.planId, targetDayName, temp.dayIndex,
-                        temp.exerciseName, temp.defaultWeight, temp.defaultSets, temp.defaultReps
+                        temp.baseId, temp.defaultWeight, temp.defaultSets, temp.defaultReps
                 );
                 workoutDao.insertTemplate(newTemp);
             }
@@ -303,8 +304,10 @@ public class PlanListActivity extends AppCompatActivity {
         executorService.execute(() -> {
             PlanEntity plan = new PlanEntity(planName, false);
             long newId = workoutDao.insertPlan(plan);
+
+            // 使用系统占位符（固定 ID=1）
             TemplateEntity placeholder = new TemplateEntity(
-                    (int)newId, "Day 1", 0, "点击修改动作名称", 20.0, 3, 12
+                    (int)newId, "Day 1", 0, com.example.fitness_plan.data.AppDatabase.SYSTEM_PLACEHOLDER_ID, 20.0, 3, 12
             );
             workoutDao.insertTemplate(placeholder);
             loadData();
@@ -331,8 +334,9 @@ public class PlanListActivity extends AppCompatActivity {
                     String dayName = input.getText().toString().trim();
                     if (!dayName.isEmpty()) {
                         executorService.execute(() -> {
+                            // 使用系统占位符（固定 ID=1）
                             com.example.fitness_plan.data.TemplateEntity placeholder = new com.example.fitness_plan.data.TemplateEntity(
-                                    plan.planId, dayName, 0, "点击修改动作名称", 20.0, 3, 12
+                                    plan.planId, dayName, 0, com.example.fitness_plan.data.AppDatabase.SYSTEM_PLACEHOLDER_ID, 20.0, 3, 12
                             );
                             workoutDao.insertTemplate(placeholder);
                             loadData();

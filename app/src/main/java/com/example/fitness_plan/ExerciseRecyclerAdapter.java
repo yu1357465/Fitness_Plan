@@ -26,6 +26,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
 import com.example.fitness_plan.data.ExerciseEntity;
+import com.example.fitness_plan.data.ExerciseWithDetail;
 import com.github.mikephil.charting.charts.LineChart;
 
 import java.util.Collections;
@@ -38,24 +39,24 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
     private static final int TYPE_FOOTER = 1;
 
     private final Context context;
-    private final List<ExerciseEntity> exerciseList;
+    private final List<ExerciseWithDetail> exerciseList;
     private final OnItemActionListener listener;
     private final boolean isLbsMode;
 
     public interface OnItemActionListener {
-        void onUpdate(ExerciseEntity exercise);
-        void onShowChart(LineChart chart, ExerciseEntity exercise);
-        void onItemLongClick(ExerciseEntity exercise);
+        void onUpdate(ExerciseWithDetail exercise);
+        void onShowChart(LineChart chart, ExerciseWithDetail exercise);
+        void onItemLongClick(ExerciseWithDetail exercise);
         void onOrderChanged();
         void onStartDrag(RecyclerView.ViewHolder holder);
-        void onRename(ExerciseEntity exercise);
-        void onDelete(ExerciseEntity exercise);
-        void onTogglePin(ExerciseEntity exercise);
+        void onRename(ExerciseWithDetail exercise);
+        void onDelete(ExerciseWithDetail exercise);
+        void onTogglePin(ExerciseWithDetail exercise);
         void onAddEmptyCard();
         void onCompletionChanged();
     }
 
-    public ExerciseRecyclerAdapter(Context context, List<ExerciseEntity> list, boolean isLbsMode, OnItemActionListener listener) {
+    public ExerciseRecyclerAdapter(Context context, List<ExerciseWithDetail> list, boolean isLbsMode, OnItemActionListener listener) {
         this.context = context;
         this.exerciseList = list;
         this.isLbsMode = isLbsMode;
@@ -93,8 +94,8 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     @SuppressLint("ClickableViewAccessibility")
     private void bindItem(ItemViewHolder holder, int position) {
-        ExerciseEntity exercise = exerciseList.get(position);
-        boolean isGhost = exercise.name.equals("新动作");
+        ExerciseWithDetail exercise = exerciseList.get(position);
+        boolean isGhost = exercise.getBaseId() == -1;
 
         // ============================================================
         // 【核心修复】全局强制去阴影、去点击浮动效果
@@ -139,7 +140,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
             holder.cardNormal.setClickable(false);
 
-            boolean isPermanent = (exercise.color == null || exercise.color.equalsIgnoreCase("#FFFFFF"));
+            boolean isPermanent = (exercise.getColor() == null || exercise.getColor().equalsIgnoreCase("#FFFFFF"));
             int textColorPrimary;
             int textColorSecondary;
 
@@ -176,7 +177,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             holder.reps.setTextColor(textColorPrimary);
             holder.unit.setTextColor(textColorSecondary);
 
-            if (exercise.isCompleted) {
+            if (exercise.isCompleted()) {
                 // === C. 已完成状态 ===
                 holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
                 holder.cardNormal.setCardBackgroundColor(Color.parseColor("#E0F2F1")); // 浅绿色背景
@@ -201,7 +202,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
             // 2. 点击
             holder.itemView.setOnClickListener(v -> {
-                exercise.isCompleted = !exercise.isCompleted;
+                exercise.exercise.isCompleted = !exercise.exercise.isCompleted;
                 listener.onUpdate(exercise);
                 listener.onCompletionChanged();
                 notifyItemChanged(position);
@@ -227,25 +228,25 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         }
 
         // --- 通用数据填充 ---
-        holder.name.setText(exercise.name);
+        holder.name.setText(exercise.exerciseName);
         holder.btnPin.setOnClickListener(v -> listener.onTogglePin(exercise));
 
-        holder.sets.setText(String.valueOf(exercise.sets));
-        holder.reps.setText(String.valueOf(exercise.reps));
+        holder.sets.setText(String.valueOf(exercise.getSets()));
+        holder.reps.setText(String.valueOf(exercise.getReps()));
 
         holder.layoutSets.setOnClickListener(v -> {
-            if(!isGhost) showNumberPickerDialog("设置组数", 1, 20, exercise.sets, val -> {
-                exercise.sets = val; listener.onUpdate(exercise);
+            if(!isGhost) showNumberPickerDialog("设置组数", 1, 20, exercise.getSets(), val -> {
+                exercise.exercise.sets = val; listener.onUpdate(exercise);
             });
         });
         holder.layoutReps.setOnClickListener(v -> {
-            if(!isGhost) showNumberPickerDialog("设置次数", 1, 100, exercise.reps, val -> {
-                exercise.reps = val; listener.onUpdate(exercise);
+            if(!isGhost) showNumberPickerDialog("设置次数", 1, 100, exercise.getReps(), val -> {
+                exercise.exercise.reps = val; listener.onUpdate(exercise);
             });
         });
 
         if (holder.unit != null) holder.unit.setText(isLbsMode ? "lbs" : "kg");
-        double displayWeight = isLbsMode ? (exercise.weight * 2.20462) : exercise.weight;
+        double displayWeight = isLbsMode ? (exercise.getWeight() * 2.20462) : exercise.getWeight();
         String wStr = (displayWeight % 1 == 0) ? String.valueOf((int) displayWeight) : String.format(Locale.getDefault(), "%.1f", displayWeight);
         holder.weight.setText(wStr);
 
@@ -256,7 +257,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                     String input = s.toString();
                     if (!input.isEmpty()) {
                         double inputVal = Double.parseDouble(input);
-                        exercise.weight = isLbsMode ? (inputVal / 2.20462) : inputVal;
+                        exercise.exercise.weight = isLbsMode ? (inputVal / 2.20462) : inputVal;
                         listener.onUpdate(exercise);
                     }
                 } catch (NumberFormatException ignored) {}
@@ -274,7 +275,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         }
     }
 
-    private void showPopupMenu(View anchorView, ExerciseEntity exercise) {
+    private void showPopupMenu(View anchorView, ExerciseWithDetail exercise) {
         PopupMenu popup = new PopupMenu(context, anchorView, Gravity.NO_GRAVITY);
         popup.getMenu().add(0, 1, 0, "修改名称");
         popup.getMenu().add(0, 2, 1, "删除动作");
@@ -304,17 +305,17 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         }
     }
 
-    public void restoreItem(ExerciseEntity item, int position) {
+    public void restoreItem(ExerciseWithDetail item, int position) {
         exerciseList.add(position, item);
         notifyItemInserted(position);
     }
 
-    public void addItem(ExerciseEntity item) {
+    public void addItem(ExerciseWithDetail item) {
         exerciseList.add(item);
         notifyItemInserted(exerciseList.size() - 1);
     }
 
-    public void removeItem(ExerciseEntity item) {
+    public void removeItem(ExerciseWithDetail item) {
         int pos = exerciseList.indexOf(item);
         if (pos != -1) {
             exerciseList.remove(pos);
@@ -322,7 +323,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         }
     }
 
-    public ExerciseEntity getItem(int position) {
+    public ExerciseWithDetail getItem(int position) {
         if (position >= 0 && position < exerciseList.size()) return exerciseList.get(position);
         return null;
     }
@@ -355,21 +356,24 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         FooterViewHolder(View itemView) { super(itemView); }
     }
 
-    static class ItemViewHolder extends RecyclerView.ViewHolder {
-        MaterialCardView cardNormal;
-        TextView name, sets, reps, unit;
-        LinearLayout layoutSets, layoutReps;
-        EditText weight;
-        ImageView btnPin;
-        View btnChart, chartContainer;
-        LineChart chart;
-        ImageView dragHandle;
-        TextWatcher weightWatcher;
-        View popupAnchor;
-        float lastTouchX = 0f;
-        float lastTouchY = 0f;
+    // 必须加 public，这样 ui.workout 包里的 Fragment 才能访问
+    public static class ItemViewHolder extends RecyclerView.ViewHolder {
 
-        ItemViewHolder(View itemView) {
+        // 所有成员变量必须是 public，否则外部无法访问 (如 holder.cardNormal)
+        public com.google.android.material.card.MaterialCardView cardNormal;
+        public TextView name, sets, reps, unit;
+        public LinearLayout layoutSets, layoutReps;
+        public EditText weight;
+        public ImageView btnPin;
+        public View btnChart, chartContainer;
+        public com.github.mikephil.charting.charts.LineChart chart;
+        public ImageView dragHandle;
+        public TextWatcher weightWatcher;
+        public View popupAnchor;
+        public float lastTouchX = 0f;
+        public float lastTouchY = 0f;
+
+        public ItemViewHolder(View itemView) {
             super(itemView);
             cardNormal = itemView.findViewById(R.id.cardNormal);
             popupAnchor = itemView.findViewById(R.id.popupAnchor);

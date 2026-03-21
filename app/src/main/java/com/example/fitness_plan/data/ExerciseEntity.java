@@ -2,17 +2,28 @@ package com.example.fitness_plan.data;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.ForeignKey;
 import androidx.room.Ignore;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "exercise_table")
+@Entity(
+        tableName = "exercise_table",
+        foreignKeys = @ForeignKey(
+                entity = ExerciseBaseEntity.class,
+                parentColumns = "baseId",
+                childColumns = "baseId",
+                onDelete = ForeignKey.NO_ACTION
+        ),
+        indices = {@Index("baseId")}
+)
 public class ExerciseEntity {
 
     @PrimaryKey(autoGenerate = true)
     public int id;
 
-    @ColumnInfo(name = "name")
-    public String name;
+    @ColumnInfo(name = "baseId")
+    public long baseId;
 
     @ColumnInfo(name = "weight")
     public double weight;
@@ -32,32 +43,38 @@ public class ExerciseEntity {
     @ColumnInfo(name = "is_lbs")
     public boolean isLbs;
 
-    // 【新增】颜色字段 (存 Hex 颜色码，如 "#FFFFFF")
     @ColumnInfo(name = "color")
     public String color;
 
     // ==========================================
-    //  内存标记字段 (不存数据库)
+    //  UI 状态字段 (正确：加上 @Ignore)
     // ==========================================
-
     @Ignore
     public boolean isDeleteConfirmMode = false;
 
     @Ignore
     public boolean isExpanded = false;
 
-    public ExerciseEntity(String name, double weight, int sets, int reps, boolean isCompleted) {
-        this.name = name;
+    // ==========================================
+    //  构造函数 (关键修正点！)
+    // ==========================================
+
+    // 1. 给这个带参构造函数加上 @Ignore
+    // 告诉 Room："这个是我（开发者）手动创建对象时用的，你别碰。"
+    @Ignore
+    public ExerciseEntity(long baseId, double weight, int sets, int reps, boolean isCompleted) {
+        this.baseId = baseId;
         this.weight = weight;
         this.sets = sets;
         this.reps = reps;
         this.isCompleted = isCompleted;
         this.sortOrder = 0;
         this.isLbs = false;
-        this.color = "#FFFFFF"; // 默认白色
+        this.color = "#FFFFFF";
     }
 
-    @Ignore
+    // 2. 去掉这里的 @Ignore
+    // 告诉 Room："请用这个空的构造函数来实例化，然后通过 public 字段把数据填进去。"
     public ExerciseEntity() {
     }
 }

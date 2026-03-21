@@ -43,6 +43,36 @@ public class UnifiedBackupUtils {
         List<HistoryEntity> history;
     }
 
+    // ... 原有的 BackupData 类 ...
+
+    /**
+     * 【新增】同步获取所有备份数据的 JSON 字符串
+     * 注意：此方法包含数据库查询，建议在子线程调用
+     */
+    public static String generateBackupJsonSync(Context context) {
+        try {
+            AppDatabase db = AppDatabase.getDatabase(context);
+            WorkoutDao dao = db.workoutDao();
+
+            BackupData data = new BackupData();
+            data.version = 1;
+            data.timestamp = System.currentTimeMillis();
+
+            // 这里使用了 Room 的同步查询方法 (dao中需要允许或者本身就是同步)
+            // 如果你的 DAO 方法全是 LiveData/Flow，你需要添加同步查询的方法
+            // 假设你的 DAO 有如下同步方法:
+            data.exercises = dao.getAllExercises();
+            data.plans = dao.getAllPlans();
+            data.templates = dao.getAllTemplates();
+            data.history = dao.getAllHistory();
+
+            return new Gson().toJson(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     // ==========================================
     //  1. 备份：写入到用户指定的 Uri (不再负责创建文件，只负责写)
     // ==========================================

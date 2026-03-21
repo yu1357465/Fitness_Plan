@@ -7,6 +7,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.fitness_plan.data.AppDatabase;
+import com.example.fitness_plan.data.EntityNameCache;
 import com.example.fitness_plan.data.HistoryEntity;
 import com.example.fitness_plan.data.WorkoutDao;
 
@@ -39,15 +40,18 @@ public class StatsActivity extends AppCompatActivity {
     private void loadAllData() {
         executorService.execute(() -> {
             // 1. 获取所有历史记录 (按时间排序)
-            // 如果 DAO 里没有 getAllHistory()，请加上: @Query("SELECT * FROM history_table ORDER BY date ASC")
             List<HistoryEntity> allHistory = workoutDao.getAllHistory();
 
-            // 2. 数据分组逻辑 (List -> Map)
+            // Setup cache
+            EntityNameCache nameCache = EntityNameCache.getInstance();
+            nameCache.setDao(workoutDao);
+
+            // 2. 数据分组逻辑 (List -> Map) - group by baseId
             Map<String, List<HistoryEntity>> groupedMap = new HashMap<>();
             List<String> nameList = new ArrayList<>();
 
             for (HistoryEntity item : allHistory) {
-                String name = item.exerciseName;
+                String name = nameCache.getExerciseName(item.baseId);
 
                 // 如果这是新动作，加入列表
                 if (!groupedMap.containsKey(name)) {

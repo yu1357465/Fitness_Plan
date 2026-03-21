@@ -1,228 +1,267 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="#F5F5F5"
-    android:overScrollMode="never">
+    tools:context=".SettingsActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="24dp"
-        android:paddingBottom="48dp"
-        android:paddingTop="72dp">
+        android:paddingBottom="40dp">
+
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="设置"
             android:textSize="34sp"
             android:textStyle="bold"
-            android:layout_marginBottom="32dp"
-            android:textColor="#333333"
-            android:letterSpacing="-0.02"/>
+            android:textColor="#000000"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="48dp"
+            android:paddingBottom="12dp"/>
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="重量默认单位"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:layout_marginBottom="12dp"/>
-
-        <RadioGroup
-            android:id="@+id/unitRadioGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/bg_flat_rounded"
-            android:padding="6dp"
-            android:layout_marginBottom="32dp">
-
-            <RadioButton
-                android:id="@+id/rbKg"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="公斤 (kg)"
-                android:textSize="17sp"
-                android:paddingStart="8dp"/>
-
-            <RadioButton
-                android:id="@+id/rbLbs"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="磅 (lbs)"
-                android:textSize="17sp"
-                android:paddingStart="8dp"/>
-        </RadioGroup>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="新动作默认类型"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:layout_marginBottom="12dp"/>
-
-        <RadioGroup
-            android:id="@+id/addStrategyRadioGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/bg_flat_rounded"
-            android:padding="6dp"
-            android:layout_marginBottom="32dp">
-
-            <RadioButton
-                android:id="@+id/rbAddToPlan"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="计划动作"
-                android:textSize="17sp"
-                android:paddingStart="8dp"/>
-
-            <RadioButton
-                android:id="@+id/rbTemporary"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="临时动作"
-                android:textSize="17sp"
-                android:paddingStart="8dp"/>
-        </RadioGroup>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#E0E0E0"
-            android:layout_marginVertical="8dp"
-            android:layout_marginBottom="24dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="数据管理"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:layout_marginBottom="12dp"/>
-
-        <LinearLayout
-            android:id="@+id/btnBackup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_flat_rounded"
-            android:padding="20dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginBottom="16dp">
-
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@android:drawable/ic_menu_save"
-                android:tint="#4DB6AC"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="备份数据 (JSON - 换机/恢复)"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:layout_marginStart="16dp"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/btnExportCsv"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_flat_rounded"
-            android:padding="20dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:layout_marginBottom="16dp">
-
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@android:drawable/ic_menu_sort_by_size"
-                android:tint="#00897B"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="导出报表 (Excel - 数据分析)"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:layout_marginStart="16dp"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/btnRestore"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_flat_rounded"
-            android:padding="20dp"
-            android:clickable="true"
-            android:focusable="true">
-
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@android:drawable/stat_sys_download"
-                android:tint="#FF5252"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="恢复数据 (导入 JSON 备份)"
-                android:textSize="17sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:layout_marginStart="16dp"/>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#E0E0E0"
-            android:layout_marginVertical="24dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="危险区域"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#FF5252"
-            android:layout_marginBottom="12dp"/>
-
-        <Button
-            android:id="@+id/btnClearAllHistory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="清空所有历史记录"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#D32F2F"
             android:textSize="17sp"
             android:textStyle="bold"
-            app:cornerRadius="8dp"
-            android:paddingVertical="12dp"
-            android:layout_marginBottom="48dp"/>
+            android:textColor="#212121"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp"/>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="4dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/white">
+
+            <RadioGroup
+                android:id="@+id/unitRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="6dp">
+                <RadioButton
+                    android:id="@+id/rbKg"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="千克 (kg)"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"/>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F5F5F5" android:layout_marginHorizontal="14dp"/>
+
+                <RadioButton
+                    android:id="@+id/rbLbs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="磅 (lbs)"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"/>
+            </RadioGroup>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="新动作默认类型"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp"/>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="4dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/white">
+
+            <RadioGroup
+                android:id="@+id/addStrategyRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="6dp">
+                <RadioButton
+                    android:id="@+id/rbAddToPlan"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="加入训练计划 (永久)"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"/>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F5F5F5" android:layout_marginHorizontal="14dp"/>
+
+                <RadioButton
+                    android:id="@+id/rbTemporary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="仅添加到今日 (临时)"
+                    android:padding="14dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"/>
+            </RadioGroup>
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="数据管理"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="#212121"/>
+
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
+
+            <LinearLayout
+                android:id="@+id/btnOpenFolder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:padding="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="数据文件夹"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#00897B"
+                    android:layout_marginEnd="6dp"/>
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_folder"
+                    app:tint="#00897B"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="4dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/white">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/btnBackup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="备份数据 (到手机存储)"
+                    android:padding="18dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"
+                    android:gravity="center_vertical"
+                    android:drawablePadding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    app:drawableStartCompat="@android:drawable/ic_menu_save"
+                    app:drawableTint="#546E7A"/>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F5F5F5" android:layout_marginHorizontal="14dp"/>
+
+                <TextView
+                    android:id="@+id/btnExportCsv"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="导出 Excel 报表 (CSV)"
+                    android:padding="18dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"
+                    android:gravity="center_vertical"
+                    android:drawablePadding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    app:drawableStartCompat="@android:drawable/ic_menu_share"
+                    app:drawableTint="#546E7A"/>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#F5F5F5" android:layout_marginHorizontal="14dp"/>
+
+                <TextView
+                    android:id="@+id/btnRestore"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="从备份恢复"
+                    android:padding="18dp"
+                    android:textSize="16sp"
+                    android:textColor="#37474F"
+                    android:gravity="center_vertical"
+                    android:drawablePadding="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    app:drawableStartCompat="@android:drawable/ic_menu_revert"
+                    app:drawableTint="#546E7A"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="危险区域"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:textColor="#D32F2F"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="28dp"
+            android:paddingBottom="8dp"/>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="4dp"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#FFEBEE">
+
+            <TextView
+                android:id="@+id/btnClearAllHistory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="清空所有历史记录"
+                android:textColor="#C62828"
+                android:textSize="16sp"
+                android:padding="18dp"
+                android:gravity="center"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:textStyle="bold"/>
+        </androidx.cardview.widget.CardView>
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

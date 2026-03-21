@@ -4,7 +4,9 @@ import android.content.Context;
 import android.net.Uri;
 import android.util.Log;
 
+import com.example.fitness_plan.data.ExerciseBaseEntity;
 import com.example.fitness_plan.data.HistoryEntity;
+import com.example.fitness_plan.data.WorkoutDao;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -28,10 +30,11 @@ public class CsvImportUtils {
     /**
      * 从 CSV 文件解析出 HistoryEntity 列表
      * @param context 上下文
+     * @param workoutDao DAO for creating exercise bases
      * @param uri 用户选择的文件 Uri
      * @return 解析成功的列表，如果失败返回 null
      */
-    public static List<HistoryEntity> importHistoryFromCSV(Context context, Uri uri) {
+    public static List<HistoryEntity> importHistoryFromCSV(Context context, WorkoutDao workoutDao, Uri uri) {
         List<HistoryEntity> importedList = new ArrayList<>();
 
         try {
@@ -78,17 +81,25 @@ public class CsvImportUtils {
                     int sets = Integer.parseInt(tokens[4].trim());
                     int reps = Integer.parseInt(tokens[5].trim());
 
-                    // 4. 【核心修复】构建对象
+                    // 4. Get or create exercise base
+                    ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(name);
+                    if (base == null) {
+                        base = new ExerciseBaseEntity(name, "kg", "其他");
+                        long baseId = workoutDao.insertExerciseBase(base);
+                        base.baseId = baseId;
+                    }
+
+                    // 5. 构建对象
                     // 需要生成一个新的展示用日期字符串
                     String displayDateStr = displayDateFormat.format(new java.util.Date(date));
 
                     // 参数顺序严格匹配 HistoryEntity:
-                    // long date, String dateStr, String workoutName, String exerciseName, double weight, int reps, int sets
+                    // long date, String dateStr, String workoutName, long baseId, double weight, int reps, int sets
                     HistoryEntity entity = new HistoryEntity(
                             date,
                             displayDateStr,
                             sessionType,
-                            name,
+                            base.baseId,
                             weight,
                             reps,
                             sets
