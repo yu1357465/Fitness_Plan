@@ -256,12 +256,16 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
         holder.layoutSets.setOnClickListener(v -> {
             if(!isGhost) showNumberPickerDialog("设置组数", 1, 20, exercise.getSets(), val -> {
-                exercise.exercise.sets = val; listener.onUpdate(exercise);
+                exercise.exercise.sets = val;
+                listener.onUpdate(exercise); // 1. 后台偷偷更新数据库
+                notifyItemChanged(position); // ⭐ 2. 核心修复：强行命令 UI 立即刷新当前卡片！
             });
         });
         holder.layoutReps.setOnClickListener(v -> {
             if(!isGhost) showNumberPickerDialog("设置次数", 1, 100, exercise.getReps(), val -> {
-                exercise.exercise.reps = val; listener.onUpdate(exercise);
+                exercise.exercise.reps = val;
+                listener.onUpdate(exercise); // 1. 后台偷偷更新数据库
+                notifyItemChanged(position); // ⭐ 2. 核心修复：强行命令 UI 立即刷新当前卡片！
             });
         });
 

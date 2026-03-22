@@ -5,8 +5,6 @@ import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.EntityNameCache;
@@ -22,7 +20,6 @@ import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +29,6 @@ import java.util.concurrent.Executors;
 public class StatsActivity extends AppCompatActivity {
 
     private WorkoutDao workoutDao;
-    private RecyclerView recyclerView;
     private RadarChart radarChart;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -41,7 +37,11 @@ public class StatsActivity extends AppCompatActivity {
     private float apeIndex = 1.0f;
     private android.view.View barStrength, barHypertrophy, barEndurance;
     private android.widget.TextView tvStrengthPct, tvHypertrophyPct, tvEndurancePct;
-    // ✅ 新增：雷达图过滤模式枚举 (0=综合, 1=力量, 2=耐力)
+
+    // ✅ 新增：洞察卡片的文本控件
+    private android.widget.TextView tvApeInsight;
+
+    // 雷达图过滤模式枚举 (0=综合, 1=力量, 2=耐力)
     private int currentRadarMode = 0;
     private android.widget.RadioGroup rgRadarMode;
 
@@ -58,9 +58,9 @@ public class StatsActivity extends AppCompatActivity {
         }
 
         workoutDao = AppDatabase.getDatabase(this).workoutDao();
-        recyclerView = findViewById(R.id.statsRecyclerView);
         radarChart = findViewById(R.id.radarChart);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        // ❌ 已经彻底移除了 RecyclerView 的相关代码
 
         barStrength = findViewById(R.id.barStrength);
         barHypertrophy = findViewById(R.id.barHypertrophy);
@@ -69,7 +69,14 @@ public class StatsActivity extends AppCompatActivity {
         tvHypertrophyPct = findViewById(R.id.tvHypertrophyPct);
         tvEndurancePct = findViewById(R.id.tvEndurancePct);
 
-        // ✅ 新增：绑定 RadioGroup 并监听模式切换
+        // ✅ 绑定洞察文本控件
+        tvApeInsight = findViewById(R.id.tvApeInsight);
+
+        // 绑定问号图标
+        android.widget.ImageView ivHelpInfo = findViewById(R.id.ivHelpInfo);
+        ivHelpInfo.setOnClickListener(v -> showExplanationDialog());
+
+        // 绑定 RadioGroup 并监听模式切换
         rgRadarMode = findViewById(R.id.rgRadarMode);
         rgRadarMode.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.rbModeAll) currentRadarMode = 0;
@@ -125,7 +132,7 @@ public class StatsActivity extends AppCompatActivity {
             List<HistoryEntity> allHistory = workoutDao.getAllHistory();
             List<ExerciseBaseEntity> allBases = workoutDao.getAllExerciseBases();
 
-            // 极简字典：BaseId -> Category，不搞任何修改保存操作
+            // 极简字典：BaseId -> Category
             Map<Long, String> baseCategoryMap = new HashMap<>();
             for (ExerciseBaseEntity base : allBases) {
                 baseCategoryMap.put(base.baseId, base.category);
@@ -134,10 +141,8 @@ public class StatsActivity extends AppCompatActivity {
             EntityNameCache nameCache = EntityNameCache.getInstance();
             nameCache.setDao(workoutDao);
 
-            Map<String, List<HistoryEntity>> groupedMap = new HashMap<>();
-            List<String> nameList = new ArrayList<>();
+            // ✅ 已彻底清理冗余的 groupedMap, nameList 等集合变量，大幅提升内存性能
             Map<String, Double> max1RmMap = new HashMap<>();
-            Map<String, Double> corrected1RmMap = new HashMap<>();
 
             // 6 大维度的最高得分记录器
             double maxChestScore = 0, maxBackScore = 0, maxLegsScore = 0;
@@ -157,13 +162,7 @@ public class StatsActivity extends AppCompatActivity {
                     category = "Other";
                 }
 
-                if (!groupedMap.containsKey(name)) {
-                    groupedMap.put(name, new ArrayList<>());
-                    nameList.add(name);
-                }
-                groupedMap.get(name).add(item);
-
-                // 累加能量系统 (⭐ 进度条保留全量统计，不随雷达模式切换而变动)
+                // 累加能量系统 (保留全量统计，不随雷达模式切换而变动)
                 if (item.reps > 0) {
                     if (item.reps <= 5) countStrength++;
                     else if (item.reps <= 12) countHypertrophy++;
@@ -171,31 +170,21 @@ public class StatsActivity extends AppCompatActivity {
                     totalValidSets++;
                 }
 
-                // ==========================================
-                // ❌ 原代码注释掉：
-                // if (item.reps > 0 && item.reps <= 15) {
-                //     double current1Rm = item.weight * (36.0 / (37.0 - item.reps));
-                // ==========================================
-
-                // ✅ 改动后的代码：植入数据漏斗与多重算法滤镜
+                // 植入数据漏斗与多重算法滤镜
                 boolean shouldInclude = false;
                 double current1Rm = 0.0;
 
                 if (item.reps > 0) {
                     if (currentRadarMode == 0 && item.reps <= 15) {
-                        // 模式 0：综合模式 (全量数据，采用标准 Brzycki 公式)
                         shouldInclude = true;
                         current1Rm = item.weight * (36.0 / (37.0 - item.reps));
                     }
                     else if (currentRadarMode == 1 && item.reps <= 6) {
-                        // 模式 1：硬核力量模式 (只看 6 次以内的大重量)
                         shouldInclude = true;
                         current1Rm = item.weight * (36.0 / (37.0 - item.reps));
                     }
                     else if (currentRadarMode == 2 && item.reps >= 10 && item.reps <= 30) {
-                        // 模式 2：肌肉耐力模式 (只看 10次以上的记录)
                         shouldInclude = true;
-                        // ⭐ 现实补丁：高次数采用 Epley Formula，防止 Brzycki 公式分母崩溃 (Divide by Zero 风险)
                         current1Rm = item.weight * (1.0 + item.reps / 30.0);
                     }
                 }
@@ -211,8 +200,6 @@ public class StatsActivity extends AppCompatActivity {
                         // 物理修正 Ape Index
                         if (category.equals("Chest") || category.equals("Shoulders")) correctedRm = current1Rm * apeIndex;
                         else if (category.equals("Back") || category.equals("Legs&Glutes")) correctedRm = current1Rm / apeIndex;
-
-                        corrected1RmMap.put(name, correctedRm);
 
                         // 标准化换算 (0-100分)
                         double score = 0;
@@ -232,8 +219,6 @@ public class StatsActivity extends AppCompatActivity {
             double coreBonus = (maxLegsScore * 0.15) + (maxBackScore * 0.15);
             maxCoreScore = Math.min(100, maxCoreScore + coreBonus);
 
-            Collections.sort(nameList);
-
             // 限制满分 100
             float fChest = Math.min(100f, (float)maxChestScore);
             float fBack = Math.min(100f, (float)maxBackScore);
@@ -249,24 +234,35 @@ public class StatsActivity extends AppCompatActivity {
             final int finalCountEndurance = countEndurance;
 
             runOnUiThread(() -> {
-                // 内部全面使用 final 替身变量
+                // 内部全面使用 final 替身变量更新进度条
                 if (finalTotalValidSets > 0) {
                     float pctStrength = (finalCountStrength * 100f) / finalTotalValidSets;
                     float pctHypertrophy = (finalCountHypertrophy * 100f) / finalTotalValidSets;
                     float pctEndurance = (finalCountEndurance * 100f) / finalTotalValidSets;
 
-                    // 动态修改 LinearLayout 的 layout_weight
                     ((android.widget.LinearLayout.LayoutParams) barStrength.getLayoutParams()).weight = Math.max(0.01f, pctStrength);
                     ((android.widget.LinearLayout.LayoutParams) barHypertrophy.getLayoutParams()).weight = Math.max(0.01f, pctHypertrophy);
                     ((android.widget.LinearLayout.LayoutParams) barEndurance.getLayoutParams()).weight = Math.max(0.01f, pctEndurance);
 
-                    // 请求重绘
                     barStrength.requestLayout();
 
-                    // 更新底部文字
                     tvStrengthPct.setText(String.format("绝对力量\n%.0f%%", pctStrength));
                     tvHypertrophyPct.setText(String.format("肌肥大\n%.0f%%", pctHypertrophy));
                     tvEndurancePct.setText(String.format("肌肉耐力\n%.0f%%", pctEndurance));
+                }
+
+                // ⭐ 新增：自动生成极简洞察摘要
+                String insightText;
+                if (apeIndex > 1.02) {
+                    insightText = String.format("你的 Ape Index (%.2f) 赋予了你优秀的「拉力」天赋，系统已在底层为你上调了背部力量的评估基线。", apeIndex);
+                } else if (apeIndex < 0.98) {
+                    insightText = String.format("你的 Ape Index (%.2f) 赋予了你优秀的「推力」天赋，系统已在底层为你上调了胸部与肩部力量的评估基线。", apeIndex);
+                } else {
+                    insightText = String.format("你的 Ape Index (%.2f) 属于完美均衡型，系统已采用最严苛的标准生物力学模型为你生成雷达评分。", apeIndex);
+                }
+
+                if (tvApeInsight != null) {
+                    tvApeInsight.setText(insightText);
                 }
 
                 ArrayList<RadarEntry> entries = new ArrayList<>();
@@ -277,18 +273,15 @@ public class StatsActivity extends AppCompatActivity {
                 entries.add(new RadarEntry(fArms));
                 entries.add(new RadarEntry(fCore));
 
-                // ⭐ 极客细节：强制锁定 Y 轴的物理极值
                 com.github.mikephil.charting.components.YAxis yAxis = radarChart.getYAxis();
                 yAxis.setAxisMinimum(0f);
                 yAxis.setAxisMaximum(100f);
 
-                // ⭐ 核心架构升级：内存复用模式 (In-place Update)
+                // 核心架构升级：内存复用模式 (In-place Update)
                 if (radarChart.getData() != null && radarChart.getData().getDataSetCount() > 0) {
-                    // 如果图表已经存在，直接提取现有图层，只替换数据
                     RadarDataSet set = (RadarDataSet) radarChart.getData().getDataSetByIndex(0);
                     set.setValues(entries);
 
-                    // 动态变色
                     if (currentRadarMode == 1) {
                         set.setColor(Color.parseColor("#E53935"));
                         set.setFillColor(Color.parseColor("#EF9A9A"));
@@ -302,10 +295,8 @@ public class StatsActivity extends AppCompatActivity {
 
                     radarChart.getData().notifyDataChanged();
                     radarChart.notifyDataSetChanged();
-                    // ⭐ 新增：压缩动画时间到 400 毫秒 (snappy 模式)
                     radarChart.animateXY(400, 400);
                 } else {
-                    // 只有第一次打开页面时，才会完整创建图表
                     RadarDataSet set = new RadarDataSet(entries, "肌肉均衡分数");
                     if (currentRadarMode == 1) {
                         set.setColor(Color.parseColor("#E53935"));
@@ -329,13 +320,34 @@ public class StatsActivity extends AppCompatActivity {
                     data.setValueTextColor(Color.parseColor("#212121"));
 
                     radarChart.setData(data);
-                    // ⭐ 新增：第一张图表也使用 400 毫秒动画
                     radarChart.animateXY(400, 400);
                 }
-
-                StatsAdapter adapter = new StatsAdapter(nameList, groupedMap, max1RmMap, corrected1RmMap, apeIndex);
-                recyclerView.setAdapter(adapter);
             });
         });
+    }
+
+    // ✅ 终极重构版的说明书弹窗
+    private void showExplanationDialog() {
+        String message =
+                "【1. 底层基石：1RM 与相对力量】\n" +
+                        "雷达图分数并非绝对重量的简单堆砌，而是双重折算的产物：首先将你的日常训练数据，统一折算为「单次极限重量 (1RM)」；随后结合你的「体重」计算相对力量。同样推起 100kg，60kg 与 100kg 体重获得的雷达评分将有天壤之别。\n\n" +
+
+                        "【2. 物理权重：Ape Index 天赋补偿】\n" +
+                        "基因决定了力学杠杆。臂展大于身高的“长臂猿”体型，在推类动作（如卧推）中做功距离长、极其吃亏，但在拉类动作（如硬拉）中占尽优势。系统已提取你的身体数据，在底层算法中为你进行了物理力臂的绝对公平补偿。\n\n" +
+
+                        "【3. 算法重载：理论与现实的边界】\n" +
+                        "理论上，健美界通用 Brzycki 公式估算 1RM。但在实际训练中，如果一组超过 15 次，该公式的误差会极其离谱（分母甚至会逼近归零）。因此，当系统探测到高次数训练时，底层引擎会自动无缝切换为适合高次数的 Epley 公式，确保耐力数据的数学严谨性。\n\n" +
+
+                        "【4. 能量漏斗：反直觉的身体引擎】\n" +
+                        "把极轻的重量一口气举 50 次，并不代表你的“绝对力量”很大，这完全是两套不同的身体引擎在工作。为了帮你精准暴露短板，雷达图拆分了三大物理滤镜：\n" +
+                        "• 力量模式 (1-6次)：消耗磷酸原，榨干快肌纤维的纯粹爆发力。\n" +
+                        "• 综合模式 (6-12次)：达成肌纤维撕裂与肌肉体积增长的最佳平衡。\n" +
+                        "• 耐力模式 (10次以上)：消耗糖原与氧气，考验慢肌纤维的抗疲劳阈值。";
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("数据引擎揭秘")
+                .setMessage(message)
+                .setPositiveButton("硬核！", null)
+                .show();
     }
 }

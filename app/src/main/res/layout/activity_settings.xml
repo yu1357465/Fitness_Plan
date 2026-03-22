@@ -56,6 +56,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     app:suffixText="cm"
+                    app:hintTextColor="#00897B"
                     android:hint="身高 (Height)">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -63,6 +64,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="numberDecimal"
+                        android:textColor="#212121"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -72,6 +74,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     app:suffixText="cm"
+                    app:hintTextColor="#00897B"
                     android:hint="臂展 (Wingspan)">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -79,6 +82,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="numberDecimal"
+                        android:textColor="#212121"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -88,6 +92,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
                     app:suffixText="kg"
+                    app:hintTextColor="#00897B"
                     android:hint="当前体重 (Body Weight)">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -95,6 +100,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="numberDecimal"
+                        android:textColor="#212121"
                         android:maxLines="1" />
                 </com.google.android.material.textfield.TextInputLayout>
 
