@@ -9,12 +9,12 @@ public class DefaultPlanGenerator {
 
     public static void populateInitialData(WorkoutDao dao) {
         // --- A. 注入核心动作库 (相当于解析导入文件里的动作列表) ---
-        long benchId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃平板卧推", "kg", "胸部"));
-        long pressId = dao.insertExerciseBase(new ExerciseBaseEntity("哑铃推举", "kg", "肩部"));
-        long pullId = dao.insertExerciseBase(new ExerciseBaseEntity("高位下拉", "kg", "背部"));
-        long rowId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃划船", "kg", "背部"));
-        long squatId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃深蹲", "kg", "腿部"));
-        long deadliftId = dao.insertExerciseBase(new ExerciseBaseEntity("传统硬拉", "kg", "腿部"));
+        long benchId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃平板卧推", "kg", "Chest"));
+        long pressId = dao.insertExerciseBase(new ExerciseBaseEntity("哑铃推举", "kg", "Shoulders"));
+        long pullId = dao.insertExerciseBase(new ExerciseBaseEntity("高位下拉", "kg", "Back"));
+        long rowId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃划船", "kg", "Back"));
+        long squatId = dao.insertExerciseBase(new ExerciseBaseEntity("杠铃深蹲", "kg", "Legs&Glutes"));
+        long deadliftId = dao.insertExerciseBase(new ExerciseBaseEntity("传统硬拉", "kg", "Legs&Glutes"));
 
         // --- B. 创建默认计划 ---
         // 修复 1：调用现有的带有 (String, boolean) 的构造器

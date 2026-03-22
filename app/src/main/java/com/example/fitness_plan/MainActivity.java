@@ -41,6 +41,12 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setAdapter(pagerAdapter);
         viewPager.setCurrentItem(1, false);
         viewPager.setOffscreenPageLimit(2); // 维持 2 个缓存即可
+
+//        // ⭐ 仅用于测试：一键注入假数据
+//        com.example.fitness_plan.data.WorkoutDao dao = com.example.fitness_plan.data.AppDatabase.getDatabase(this).workoutDao();
+//        MockDataGenerator.injectData(dao, () -> {
+//            runOnUiThread(() -> android.widget.Toast.makeText(this, "假数据注入成功！请去数据中心查看", android.widget.Toast.LENGTH_SHORT).show());
+//        });
     }
 
     private static class MainPagerAdapter extends FragmentStateAdapter {

@@ -168,6 +168,19 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/btnPin"/>
 
+            <TextView
+                android:id="@+id/tvCategoryBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:textSize="10sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tvExerciseName"/>
+
             <LinearLayout
                 android:id="@+id/dataContainer"
                 android:layout_width="0dp"
@@ -177,7 +190,7 @@
                 android:layout_marginTop="12dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tvExerciseName">
+                app:layout_constraintTop_toBottomOf="@+id/tvCategoryBadge">
 
                 <LinearLayout
                     android:id="@+id/layoutWeight"

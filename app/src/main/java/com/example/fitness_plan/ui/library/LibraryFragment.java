@@ -223,71 +223,85 @@ public class LibraryFragment extends Fragment {
     }
 
     // ==========================================
-    //  核心逻辑：新建动作 (已升级下拉框)
+    //  核心逻辑：新建动作 (带下拉联想)
     // ==========================================
     private void showAddDialog() {
-        LinearLayout layout = new LinearLayout(requireContext());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 40, 50, 40);
+        if (getContext() == null) return;
 
-        final EditText input = new EditText(requireContext());
-        input.setHint("动作名称 (如: 杠铃划船)");
-        layout.addView(input);
+        executorService.execute(() -> {
+            List<ExerciseBaseEntity> allBases = workoutDao.getAllExerciseBases();
+            List<String> existNames = new ArrayList<>();
+            for (ExerciseBaseEntity b : allBases) existNames.add(b.name);
 
-        TextView tvLabel = new TextView(requireContext());
-        tvLabel.setText("目标肌群 (用于雷达图):");
-        tvLabel.setPadding(0, 30, 0, 10);
-        tvLabel.setTextColor(android.graphics.Color.parseColor("#757575"));
-        layout.addView(tvLabel);
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    LinearLayout layout = new LinearLayout(requireContext());
+                    layout.setOrientation(LinearLayout.VERTICAL);
+                    layout.setPadding(50, 40, 50, 40);
 
-        final Spinner spinner = new Spinner(requireContext());
-        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, MUSCLE_GROUPS);
-        spinner.setAdapter(spinnerAdapter);
-        layout.addView(spinner);
+                    // ⭐ 升级：AutoCompleteTextView 联想框
+                    final android.widget.AutoCompleteTextView input = new android.widget.AutoCompleteTextView(requireContext());
+                    input.setHint("动作名称 (如: 杠铃划船)");
+                    android.widget.ArrayAdapter<String> autoAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, existNames);
+                    input.setAdapter(autoAdapter);
+                    input.setThreshold(1);
+                    layout.addView(input);
 
-        // 自动弹出软键盘
-        input.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                input.post(() -> {
-                    InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-                    if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+                    TextView tvLabel = new TextView(requireContext());
+                    tvLabel.setText("目标肌群 (用于雷达图):");
+                    tvLabel.setPadding(0, 30, 0, 10);
+                    tvLabel.setTextColor(android.graphics.Color.parseColor("#757575"));
+                    layout.addView(tvLabel);
+
+                    final Spinner spinner = new Spinner(requireContext());
+                    ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, MUSCLE_GROUPS);
+                    spinner.setAdapter(spinnerAdapter);
+                    layout.addView(spinner);
+
+                    input.setOnFocusChangeListener((v, hasFocus) -> {
+                        if (hasFocus) {
+                            input.post(() -> {
+                                InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                                if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+                            });
+                        }
+                    });
+
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("新建标准动作")
+                            .setView(layout)
+                            .setPositiveButton("添加", (dialog, which) -> {
+                                String name = input.getText().toString().trim();
+                                String selectedText = spinner.getSelectedItem().toString();
+                                String dbCategory = selectedText.contains("(") ?
+                                        selectedText.substring(selectedText.indexOf("(") + 1, selectedText.indexOf(")")) : "Other";
+
+                                if (!name.isEmpty()) {
+                                    executorService.execute(() -> {
+                                        if (workoutDao.getExerciseBaseByName(name) != null) {
+                                            if(getActivity()!=null) getActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "动作已存在，请勿重复添加", Toast.LENGTH_SHORT).show());
+                                            return;
+                                        }
+
+                                        ExerciseBaseEntity newBase = new ExerciseBaseEntity(name, "kg", dbCategory);
+                                        workoutDao.insertExerciseBase(newBase);
+
+                                        if (getActivity() != null) {
+                                            getActivity().runOnUiThread(() -> {
+                                                Toast.makeText(requireContext(), "添加成功", Toast.LENGTH_SHORT).show();
+                                                loadData();
+                                                etSearch.setText("");
+                                            });
+                                        }
+                                    });
+                                }
+                            })
+                            .setNegativeButton("取消", null)
+                            .show();
+
+                    input.requestFocus();
                 });
             }
         });
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("新建标准动作")
-                .setView(layout)
-                .setPositiveButton("添加", (dialog, which) -> {
-                    String name = input.getText().toString().trim();
-                    String selectedText = spinner.getSelectedItem().toString();
-                    String dbCategory = selectedText.contains("(") ?
-                            selectedText.substring(selectedText.indexOf("(") + 1, selectedText.indexOf(")")) : "Other";
-
-                    if (!name.isEmpty()) {
-                        executorService.execute(() -> {
-                            if (workoutDao.getExerciseBaseByName(name) != null) {
-                                if(getActivity()!=null) getActivity().runOnUiThread(() -> Toast.makeText(requireContext(), "动作已存在，请勿重复添加", Toast.LENGTH_SHORT).show());
-                                return;
-                            }
-
-                            // ⭐ 创建实体时，写入标准的英文 Category
-                            ExerciseBaseEntity newBase = new ExerciseBaseEntity(name, "kg", dbCategory);
-                            workoutDao.insertExerciseBase(newBase);
-
-                            if (getActivity() != null) {
-                                getActivity().runOnUiThread(() -> {
-                                    Toast.makeText(requireContext(), "添加成功", Toast.LENGTH_SHORT).show();
-                                    loadData();
-                                    etSearch.setText("");
-                                });
-                            }
-                        });
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .show();
-
-        input.requestFocus();
     }
 }

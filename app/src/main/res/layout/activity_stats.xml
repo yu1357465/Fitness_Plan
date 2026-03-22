@@ -32,19 +32,119 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="肌肉均衡诊断雷达"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#757575"
-                android:layout_marginBottom="8dp"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="战力雷达"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#212121"
+                    android:layout_weight="1"/>
+
+                <RadioGroup
+                    android:id="@+id/rgRadarMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:orientation="horizontal"
+                    android:background="@drawable/bg_flat_rounded"
+                    android:padding="2dp">
+
+                    <RadioButton
+                        android:id="@+id/rbModeAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:text="综合"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#212121"
+                        android:button="@null"
+                        android:gravity="center"
+                        android:paddingHorizontal="16dp"
+                        android:background="@drawable/selector_radio_tab"
+                        android:checked="true"/>
+
+                    <RadioButton
+                        android:id="@+id/rbModeStrength"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:text="力量"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#212121"
+                        android:button="@null"
+                        android:gravity="center"
+                        android:paddingHorizontal="16dp"
+                        android:background="@drawable/selector_radio_tab"/>
+
+                    <RadioButton
+                        android:id="@+id/rbModeEndurance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:text="耐力"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#212121"
+                        android:button="@null"
+                        android:gravity="center"
+                        android:paddingHorizontal="16dp"
+                        android:background="@drawable/selector_radio_tab"/>
+                </RadioGroup>
+            </LinearLayout>
 
             <com.github.mikephil.charting.charts.RadarChart
                 android:id="@+id/radarChart"
                 android:layout_width="match_parent"
                 android:layout_height="350dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="能量系统分布 (基于训练次数)"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#9E9E9E"
+                    android:layout_marginBottom="8dp"/>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="10dp"
+                    app:cardCornerRadius="5dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="#EEEEEE">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal">
+                        <View android:id="@+id/barStrength" android:layout_width="0dp" android:layout_height="match_parent" android:background="#EF5350" android:layout_weight="33"/>
+                        <View android:id="@+id/barHypertrophy" android:layout_width="0dp" android:layout_height="match_parent" android:background="#FFA726" android:layout_weight="34"/>
+                        <View android:id="@+id/barEndurance" android:layout_width="0dp" android:layout_height="match_parent" android:background="#66BB6A" android:layout_weight="33"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="6dp">
+                    <TextView android:id="@+id/tvStrengthPct" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="绝对力量\n0%" android:textSize="11sp" android:textColor="#EF5350" android:gravity="start"/>
+                    <TextView android:id="@+id/tvHypertrophyPct" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="肌肥大\n0%" android:textSize="11sp" android:textColor="#F57C00" android:gravity="center"/>
+                    <TextView android:id="@+id/tvEndurancePct" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="肌肉耐力\n0%" android:textSize="11sp" android:textColor="#43A047" android:gravity="end"/>
+                </LinearLayout>
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

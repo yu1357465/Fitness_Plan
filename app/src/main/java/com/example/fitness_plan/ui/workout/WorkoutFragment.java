@@ -353,127 +353,130 @@ public class WorkoutFragment extends Fragment {
         }
     }
 
-    // =========================================================
-    //  逻辑 E: 重命名与新建弹窗 (直接插入真实动作)
-    // =========================================================
+    // ==========================================
+    //  ⭐ 核心修改：编辑现有动作卡片 (带联想，锁死数据源)
+    // ==========================================
     private void showRenameDialog(ExerciseWithDetail exercise) {
         if (getContext() == null) return;
 
-        View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_rename_center, null);
-
-        TextView tvTitle = view.findViewById(R.id.tvDialogTitle);
-        android.widget.EditText etInput = view.findViewById(R.id.etRenameInput);
-        View btnCancel = view.findViewById(R.id.btnCancel);
-        View btnConfirm = view.findViewById(R.id.btnConfirm);
-
-        tvTitle.setText("修改动作名称");
-
-        boolean isGhost = exercise.getBaseId() == -1;
-        if (isGhost) {
-            etInput.setText("");
-        } else {
-            etInput.setText(exercise.exerciseName);
-            etInput.setSelection(exercise.exerciseName.length());
-        }
-
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setView(view)
-                .setCancelable(true)
-                .create();
-
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-            dialog.getWindow().setDimAmount(0f);
-            dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-        }
-
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
-
-        View.OnClickListener confirmAction = v -> {
-            String newName = etInput.getText().toString().trim();
-            if (!newName.isEmpty()) {
-                executorService.execute(() -> {
-                    // ⭐ 1. 记住它原来的身份证号，等会儿去模板里找它
-                    long oldBaseId = exercise.getBaseId();
-                    boolean isPermanent = exercise.getColor() != null && exercise.getColor().equalsIgnoreCase("#FFFFFF");
-
-                    // 2. 查找或创建新的 BaseEntity (新名字的动作)
-                    ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(newName);
-                    if (base == null) {
-                        base = new ExerciseBaseEntity(newName,
-                                exercise.defaultUnit != null ? exercise.defaultUnit : "kg",
-                                exercise.category != null ? exercise.category : "其他");
-                        long baseId = workoutDao.insertExerciseBase(base);
-                        base.baseId = baseId;
-                    }
-
-                    // 3. 更新当前界面上的卡片，指向新的身份证号
-                    exercise.exercise.baseId = base.baseId;
-                    workoutDao.update(exercise.exercise);
-
-                    // 4. 更新内存缓存，防止名字显示延迟
-                    nameCache.updateCache(base.baseId, newName);
-
-                    // ⭐ 5. 核心修复 Bug：如果它是一张固定的白卡（非新建的幽灵卡），必须顺藤摸瓜把底层的模板也换掉！
-                    if (!isGhost && isPermanent) {
-                        PlanEntity activePlan = workoutDao.getActivePlan();
-                        if (activePlan != null && currentPlanName != null) {
-                            // 先从模板图纸里把旧动作擦掉
-                            workoutDao.deleteTemplateByBaseId(activePlan.planId, currentPlanName, oldBaseId);
-
-                            // 再把新动作画到模板图纸上，继承原来的组数、次数和排序
-                            TemplateEntity template = new TemplateEntity();
-                            template.planId = activePlan.planId;
-                            template.dayName = currentPlanName;
-                            template.baseId = base.baseId;
-                            template.defaultSets = exercise.getSets();
-                            template.defaultReps = exercise.getReps();
-                            template.defaultWeight = exercise.getWeight();
-                            template.sortOrder = exercise.getSortOrder();
-                            workoutDao.insertTemplate(template);
-                        }
-                    }
-
-                    // 6. 之前的逻辑：如果是底部绿色加号新建的动作，且开启了默认加入计划
-                    if (isGhost && defaultAddToPlan) {
-                        PlanEntity activePlan = workoutDao.getActivePlan();
-                        if (activePlan != null && currentPlanName != null) {
-                            TemplateEntity template = new TemplateEntity();
-                            template.planId = activePlan.planId;
-                            template.dayName = currentPlanName;
-                            template.baseId = base.baseId;
-                            template.defaultSets = 4;
-                            template.defaultReps = 12;
-                            template.sortOrder = exercise.getSortOrder();
-                            workoutDao.insertTemplate(template);
-                        }
-                    }
-
-                    // 刷新界面
-                    loadDataFromDatabase();
-                });
-                dialog.dismiss();
+        executorService.execute(() -> {
+            ExerciseBaseEntity base = workoutDao.getExerciseBaseById(exercise.getBaseId());
+            List<ExerciseBaseEntity> allBases = workoutDao.getAllExerciseBases();
+            List<String> existNames = new ArrayList<>();
+            for (ExerciseBaseEntity b : allBases) {
+                existNames.add(b.name);
             }
-        };
 
-        btnConfirm.setOnClickListener(confirmAction);
+            if (base != null) {
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+                        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                        layout.setPadding(50, 40, 50, 0);
 
-        etInput.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                confirmAction.onClick(v);
-                return true;
+                        // 升级 1：带联想的输入框
+                        final android.widget.AutoCompleteTextView etInput = new android.widget.AutoCompleteTextView(requireContext());
+                        etInput.setHint("输入新动作名称");
+                        etInput.setText(base.name);
+                        etInput.setSingleLine(true); // ⭐ 限制单行
+                        android.widget.ArrayAdapter<String> autoAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, existNames);
+                        etInput.setAdapter(autoAdapter);
+                        etInput.setThreshold(1);
+                        layout.addView(etInput);
+
+                        // 升级 2：显示彩色徽章
+                        final TextView tvCategoryBadge = new TextView(requireContext());
+
+                        // ⭐ 核心修复：限制宽度，居中对齐
+                        android.widget.LinearLayout.LayoutParams badgeParams = new android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        );
+                        badgeParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+                        badgeParams.topMargin = 30;
+                        badgeParams.bottomMargin = 10;
+                        tvCategoryBadge.setLayoutParams(badgeParams);
+
+                        tvCategoryBadge.setPadding(40, 15, 40, 15); // 精致胶囊
+                        tvCategoryBadge.setTextSize(12f);
+                        tvCategoryBadge.setTextColor(Color.WHITE);
+                        tvCategoryBadge.setText("当前肌群： " + translateCategoryToChinese(base.category));
+                        layout.addView(tvCategoryBadge);
+
+                        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+                        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                        shape.setCornerRadius(16f * requireContext().getResources().getDisplayMetrics().density);
+                        shape.setColor(getCategoryColor(base.category));
+                        tvCategoryBadge.setBackground(shape);
+
+                        final Context ctx = requireContext();
+
+                        // 联想选中逻辑：更新显示的徽章
+                        etInput.setOnItemClickListener((parent, v, pos, id) -> {
+                            String selectedName = parent.getItemAtPosition(pos).toString();
+                            executorService.execute(() -> {
+                                ExerciseBaseEntity newBase = workoutDao.getExerciseBaseByName(selectedName);
+                                if (newBase != null) {
+                                    if(getActivity()!=null){
+                                        getActivity().runOnUiThread(() -> {
+                                            tvCategoryBadge.setText("目标肌群： " + translateCategoryToChinese(newBase.category));
+                                            shape.setColor(getCategoryColor(newBase.category));
+                                            tvCategoryBadge.setBackground(shape);
+                                        });
+                                    }
+                                }
+                            });
+                        });
+
+                        new AlertDialog.Builder(requireContext())
+                                .setTitle("修改动作 (或替换为已有)")
+                                .setView(layout)
+                                .setPositiveButton("保存", (dialog, which) -> {
+                                    String newName = etInput.getText().toString().trim();
+                                    if (!newName.isEmpty()) {
+                                        executorService.execute(() -> {
+                                            long oldBaseId = exercise.getBaseId();
+                                            boolean isPermanent = exercise.getColor() != null && exercise.getColor().equalsIgnoreCase("#FFFFFF");
+
+                                            ExerciseBaseEntity targetBase = workoutDao.getExerciseBaseByName(newName);
+                                            if (targetBase == null) {
+                                                // 依然是全新的名字，只能默认给个 Other，因为编辑界面我们不显示长长的 Spinner
+                                                targetBase = new ExerciseBaseEntity(newName, "kg", "Other");
+                                                long baseId = workoutDao.insertExerciseBase(targetBase);
+                                                targetBase.baseId = baseId;
+                                            }
+
+                                            // 替换当前卡片的 baseId
+                                            exercise.exercise.baseId = targetBase.baseId;
+                                            workoutDao.update(exercise.exercise);
+                                            nameCache.updateCache(targetBase.baseId, newName);
+
+                                            // 处理永久计划模板的替换逻辑 (保持不变)
+                                            if (isPermanent) {
+                                                PlanEntity activePlan = workoutDao.getActivePlan();
+                                                if (activePlan != null && currentPlanName != null) {
+                                                    workoutDao.deleteTemplateByBaseId(activePlan.planId, currentPlanName, oldBaseId);
+                                                    TemplateEntity template = new TemplateEntity();
+                                                    template.planId = activePlan.planId;
+                                                    template.dayName = currentPlanName;
+                                                    template.baseId = targetBase.baseId;
+                                                    template.defaultSets = exercise.getSets();
+                                                    template.defaultReps = exercise.getReps();
+                                                    template.defaultWeight = exercise.getWeight();
+                                                    template.sortOrder = exercise.getSortOrder();
+                                                    workoutDao.insertTemplate(template);
+                                                }
+                                            }
+                                            loadDataFromDatabase();
+                                        });
+                                    }
+                                })
+                                .setNeutralButton("取消", null)
+                                .show();
+                    });
+                }
             }
-            return false;
         });
-
-        dialog.setOnDismissListener(d -> {
-            if (isGhost && exercise.getBaseId() == -1) {
-                deleteTempCard(exercise);
-            }
-        });
-
-        dialog.show();
-        etInput.requestFocus();
     }
 
     private void deleteTempCard(ExerciseWithDetail exercise) {
@@ -493,96 +496,175 @@ public class WorkoutFragment extends Fragment {
         });
     }
 
-    // ⭐ 核心方法：带【雷达图肌群分类】的新建弹窗
+    // ==========================================
+    //  ⭐ 核心插入：新建动作弹窗 (带自动联想 + 锁死肌群修改权)
+    // ==========================================
     private void showAddDialog() {
         if (getContext() == null) return;
 
-        // 1. 创建一个纵向的容器
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        layout.setPadding(50, 20, 50, 0);
+        executorService.execute(() -> {
+            // ⭐ 异步读取所有动作名字，用于联想
+            List<ExerciseBaseEntity> allBases = workoutDao.getAllExerciseBases();
+            List<String> existNames = new ArrayList<>();
+            for (ExerciseBaseEntity b : allBases) {
+                existNames.add(b.name);
+            }
 
-        // 2. 动作名称输入框
-        android.widget.EditText input = new android.widget.EditText(requireContext());
-        input.setHint("输入动作名称 (如: 哑铃弯举)");
-        layout.addView(input);
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+                    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    layout.setPadding(50, 40, 50, 0);
 
-        // 3. 提示文字
-        TextView tvLabel = new TextView(requireContext());
-        tvLabel.setText("选择目标肌群 (用于雷达图分析):");
-        tvLabel.setPadding(0, 30, 0, 10);
-        tvLabel.setTextColor(Color.parseColor("#757575"));
-        layout.addView(tvLabel);
+                    // 升级 1：AutoCompleteTextView 联想框 (增加单行限制，恢复美观)
+                    final android.widget.AutoCompleteTextView input = new android.widget.AutoCompleteTextView(requireContext());
+                    input.setHint("输入动作名称 (如: 杠铃划船)");
+                    input.setSingleLine(true); // ⭐ 限制单行，防变形
+                    android.widget.ArrayAdapter<String> autoAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, existNames);
+                    input.setAdapter(autoAdapter);
+                    input.setThreshold(1);
+                    layout.addView(input);
 
-        // 4. 雷达图的 6 大唯独下拉框
-        android.widget.Spinner spinner = new android.widget.Spinner(requireContext());
-        String[] muscleGroups = {"胸部 (Chest)", "背部 (Back)", "腿臀 (Legs&Glutes)", "肩部 (Shoulders)", "手臂 (Arms)", "核心 (Core)", "其他 (Other)"};
-        android.widget.ArrayAdapter<String> spinnerAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, muscleGroups);
-        spinner.setAdapter(spinnerAdapter);
-        layout.addView(spinner);
+                    // 升级 2：用于显示已存在肌群的 Badge
+                    final TextView tvCategoryBadge = new TextView(requireContext());
 
-        input.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                input.post(() -> {
-                    InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+                    // ⭐ 核心修复：限制宽度，居中对齐，告别“狗皮膏药”
+                    android.widget.LinearLayout.LayoutParams badgeParams = new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    );
+                    badgeParams.gravity = android.view.Gravity.CENTER_HORIZONTAL; // 居中
+                    badgeParams.topMargin = 30; // 往下挪一点，和输入框拉开距离
+                    tvCategoryBadge.setLayoutParams(badgeParams);
+
+                    // ⭐ 打磨成精致的胶囊形状 (左右留白大，上下留白小)
+                    tvCategoryBadge.setPadding(40, 15, 40, 15);
+                    tvCategoryBadge.setTextSize(12f);
+                    tvCategoryBadge.setTextColor(Color.WHITE);
+                    tvCategoryBadge.setVisibility(View.GONE);
+                    layout.addView(tvCategoryBadge);
+
+                    // 升级 3：肌群选择器提示文本 (初始显示)
+                    final TextView tvLabel = new TextView(requireContext());
+                    tvLabel.setText("目标肌群 (如果是库中已有动作，将忽略此项):");
+                    tvLabel.setPadding(0, 30, 0, 10);
+                    tvLabel.setTextColor(Color.parseColor("#757575"));
+                    tvLabel.setVisibility(View.VISIBLE);
+                    layout.addView(tvLabel);
+
+                    // 升级 4：Spinner (初始显示)
+                    final android.widget.Spinner spinner = new android.widget.Spinner(requireContext());
+                    String[] muscleGroups = {"胸部 (Chest)", "背部 (Back)", "腿臀 (Legs&Glutes)", "肩部 (Shoulders)", "手臂 (Arms)", "核心 (Core)", "其他 (Other)"};
+                    android.widget.ArrayAdapter<String> spinnerAdapter = new android.widget.ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, muscleGroups);
+                    spinner.setAdapter(spinnerAdapter);
+                    layout.addView(spinner);
+
+                    final Context ctx = requireContext();
+
+                    // ⭐ ⭐ 神级逻辑：监听联想框选择事件，一旦选中已有动作，锁死权限！
+                    input.setOnItemClickListener((parent, v, pos, id) -> {
+                        String selectedName = parent.getItemAtPosition(pos).toString();
+                        executorService.execute(() -> {
+                            ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(selectedName);
+                            if (base != null) {
+                                if (getActivity() != null) {
+                                    getActivity().runOnUiThread(() -> {
+                                        tvLabel.setVisibility(View.GONE);
+                                        spinner.setVisibility(View.GONE);
+                                        tvCategoryBadge.setVisibility(View.VISIBLE);
+                                        tvCategoryBadge.setText("目标肌群： " + translateCategoryToChinese(base.category));
+
+                                        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+                                        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                                        shape.setCornerRadius(16f * ctx.getResources().getDisplayMetrics().density);
+                                        shape.setColor(getCategoryColor(base.category));
+                                        tvCategoryBadge.setBackground(shape);
+                                    });
+                                }
+                            }
+                        });
+                    });
+
+                    // 监听输入框内容改变，如果删除了联想词，恢复 Spinner
+                    input.addTextChangedListener(new android.text.TextWatcher() {
+                        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                        @Override public void afterTextChanged(android.text.Editable s) {
+                            if (tvCategoryBadge.getVisibility() == View.VISIBLE) {
+                                tvCategoryBadge.setVisibility(View.GONE);
+                                tvLabel.setVisibility(View.VISIBLE);
+                                spinner.setVisibility(View.VISIBLE);
+                            }
+                        }
+                    });
+
+                    input.setOnFocusChangeListener((v, hasFocus) -> {
+                        if (hasFocus) {
+                            input.post(() -> {
+                                InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                                if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
+                            });
+                        }
+                    });
+
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("添加今日动作")
+                            .setView(layout)
+                            .setPositiveButton("添加", (dialog, which) -> {
+                                String name = input.getText().toString().trim();
+
+                                String tempCategory = "Other";
+                                if (spinner.getVisibility() == View.VISIBLE) {
+                                    String selectedText = spinner.getSelectedItem().toString();
+                                    tempCategory = selectedText.contains("(") ?
+                                            selectedText.substring(selectedText.indexOf("(") + 1, selectedText.indexOf(")")) : "Other";
+                                }
+
+                                // ⭐ 核心修复：在跨入 Lambda 结界前，给修改过的 tempCategory 拍一张 final 快照！
+                                final String finalDbCategory = tempCategory;
+
+                                if (!name.isEmpty()) {
+                                    executorService.execute(() -> {
+                                        ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(name);
+                                        if (base == null) {
+                                            // ⭐ 在 Lambda 里面，使用定格后的 final 替身
+                                            base = new ExerciseBaseEntity(name, "kg", finalDbCategory);
+                                            long baseId = workoutDao.insertExerciseBase(base);
+                                            base.baseId = baseId;
+                                        }
+
+                                        int sortOrder = workoutDao.getAllExercises().size();
+                                        ExerciseEntity exercise = new ExerciseEntity(base.baseId, 20.0, 4, 12, false);
+                                        exercise.sortOrder = sortOrder;
+
+                                        if (defaultAddToPlan) {
+                                            exercise.color = "#FFFFFF";
+                                            PlanEntity activePlan = workoutDao.getActivePlan();
+                                            if (activePlan != null && currentPlanName != null) {
+                                                TemplateEntity template = new TemplateEntity();
+                                                template.planId = activePlan.planId;
+                                                template.dayName = currentPlanName;
+                                                template.baseId = base.baseId;
+                                                template.defaultSets = 4;
+                                                template.defaultReps = 12;
+                                                template.sortOrder = sortOrder;
+                                                workoutDao.insertTemplate(template);
+                                            }
+                                        } else {
+                                            exercise.color = "#FFF9C4";
+                                        }
+
+                                        workoutDao.insert(exercise);
+                                        loadDataFromDatabase();
+                                    });
+                                }
+                            })
+                            .setNegativeButton("取消", null)
+                            .show();
+                    input.requestFocus();
                 });
             }
         });
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("添加新动作")
-                .setView(layout)
-                .setPositiveButton("添加", (dialog, which) -> {
-                    String name = input.getText().toString().trim();
-                    // 提取下拉框中括号里的英文作为底层 category (如 Chest)
-                    String selectedCategory = spinner.getSelectedItem().toString();
-                    String dbCategory = selectedCategory.contains("(") ?
-                            selectedCategory.substring(selectedCategory.indexOf("(") + 1, selectedCategory.indexOf(")")) : "Other";
-
-                    if (!name.isEmpty()) {
-                        executorService.execute(() -> {
-                            // 查重并自动在动作库创建，⭐ 这里征用了 category 字段！
-                            ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(name);
-                            if (base == null) {
-                                base = new ExerciseBaseEntity(name, "kg", dbCategory);
-                                long baseId = workoutDao.insertExerciseBase(base);
-                                base.baseId = baseId;
-                            } else {
-                                // 如果动作存在，顺手把它的分类更新一下
-                                base.category = dbCategory;
-                                workoutDao.updateExerciseBase(base);
-                            }
-
-                            int sortOrder = workoutDao.getAllExercises().size();
-                            ExerciseEntity exercise = new ExerciseEntity(base.baseId, 20.0, 4, 12, false);
-                            exercise.sortOrder = sortOrder;
-
-                            if (defaultAddToPlan) {
-                                exercise.color = "#FFFFFF";
-                                PlanEntity activePlan = workoutDao.getActivePlan();
-                                if (activePlan != null && currentPlanName != null) {
-                                    TemplateEntity template = new TemplateEntity();
-                                    template.planId = activePlan.planId;
-                                    template.dayName = currentPlanName;
-                                    template.baseId = base.baseId;
-                                    template.defaultSets = 4;
-                                    template.defaultReps = 12;
-                                    template.sortOrder = sortOrder;
-                                    workoutDao.insertTemplate(template);
-                                }
-                            } else {
-                                exercise.color = "#FFF9C4";
-                            }
-
-                            workoutDao.insert(exercise);
-                            loadDataFromDatabase();
-                        });
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .show();
-        input.requestFocus();
     }
 
     // =========================================================
@@ -1104,6 +1186,33 @@ public class WorkoutFragment extends Fragment {
             float newCenter = (newFm.descent + newFm.ascent) / 2f;
             float dy = originalCenter - newCenter;
             canvas.drawText(text, start, end, x, y + dy, newPaint);
+        }
+    }
+
+    // ⭐ 在类末尾，加入这两个用于显示徽章的翻译辅助方法：
+    private String translateCategoryToChinese(String rawCategory) {
+        if (rawCategory == null) return "其他";
+        switch (rawCategory) {
+            case "Chest": return "胸部";
+            case "Back": return "背部";
+            case "Legs&Glutes": return "腿臀";
+            case "Shoulders": return "肩部";
+            case "Arms": return "手臂";
+            case "Core": return "核心";
+            default: return "其他";
+        }
+    }
+
+    private int getCategoryColor(String rawCategory) {
+        if (rawCategory == null) return Color.parseColor("#9E9E9E");
+        switch (rawCategory) {
+            case "Chest": return Color.parseColor("#1E88E5");
+            case "Back": return Color.parseColor("#43A047");
+            case "Legs&Glutes": return Color.parseColor("#F4511E");
+            case "Shoulders": return Color.parseColor("#8E24AA");
+            case "Arms": return Color.parseColor("#E53935");
+            case "Core": return Color.parseColor("#FDD835");
+            default: return Color.parseColor("#9E9E9E");
         }
     }
 }

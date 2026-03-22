@@ -39,6 +39,11 @@ public class StatsActivity extends AppCompatActivity {
     // 身体维度
     private float userHeight, userWingspan, userWeight;
     private float apeIndex = 1.0f;
+    private android.view.View barStrength, barHypertrophy, barEndurance;
+    private android.widget.TextView tvStrengthPct, tvHypertrophyPct, tvEndurancePct;
+    // ✅ 新增：雷达图过滤模式枚举 (0=综合, 1=力量, 2=耐力)
+    private int currentRadarMode = 0;
+    private android.widget.RadioGroup rgRadarMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +61,24 @@ public class StatsActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.statsRecyclerView);
         radarChart = findViewById(R.id.radarChart);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        barStrength = findViewById(R.id.barStrength);
+        barHypertrophy = findViewById(R.id.barHypertrophy);
+        barEndurance = findViewById(R.id.barEndurance);
+        tvStrengthPct = findViewById(R.id.tvStrengthPct);
+        tvHypertrophyPct = findViewById(R.id.tvHypertrophyPct);
+        tvEndurancePct = findViewById(R.id.tvEndurancePct);
+
+        // ✅ 新增：绑定 RadioGroup 并监听模式切换
+        rgRadarMode = findViewById(R.id.rgRadarMode);
+        rgRadarMode.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.rbModeAll) currentRadarMode = 0;
+            else if (checkedId == R.id.rbModeStrength) currentRadarMode = 1;
+            else if (checkedId == R.id.rbModeEndurance) currentRadarMode = 2;
+
+            // 切换模式后，重新用新滤镜去计算数据和重绘雷达图
+            loadAndAnalyzeData();
+        });
 
         loadBodyMetrics();
         setupRadarChartUI();
@@ -120,6 +143,11 @@ public class StatsActivity extends AppCompatActivity {
             double maxChestScore = 0, maxBackScore = 0, maxLegsScore = 0;
             double maxShouldersScore = 0, maxArmsScore = 0, maxCoreScore = 0;
 
+            int countStrength = 0;    // 1-5次
+            int countHypertrophy = 0; // 6-12次
+            int countEndurance = 0;   // 13次以上
+            int totalValidSets = 0;
+
             for (HistoryEntity item : allHistory) {
                 String name = nameCache.getExerciseName(item.baseId);
                 String category = baseCategoryMap.get(item.baseId);
@@ -135,8 +163,45 @@ public class StatsActivity extends AppCompatActivity {
                 }
                 groupedMap.get(name).add(item);
 
-                if (item.reps > 0 && item.reps <= 15) {
-                    double current1Rm = item.weight * (36.0 / (37.0 - item.reps));
+                // 累加能量系统 (⭐ 进度条保留全量统计，不随雷达模式切换而变动)
+                if (item.reps > 0) {
+                    if (item.reps <= 5) countStrength++;
+                    else if (item.reps <= 12) countHypertrophy++;
+                    else countEndurance++;
+                    totalValidSets++;
+                }
+
+                // ==========================================
+                // ❌ 原代码注释掉：
+                // if (item.reps > 0 && item.reps <= 15) {
+                //     double current1Rm = item.weight * (36.0 / (37.0 - item.reps));
+                // ==========================================
+
+                // ✅ 改动后的代码：植入数据漏斗与多重算法滤镜
+                boolean shouldInclude = false;
+                double current1Rm = 0.0;
+
+                if (item.reps > 0) {
+                    if (currentRadarMode == 0 && item.reps <= 15) {
+                        // 模式 0：综合模式 (全量数据，采用标准 Brzycki 公式)
+                        shouldInclude = true;
+                        current1Rm = item.weight * (36.0 / (37.0 - item.reps));
+                    }
+                    else if (currentRadarMode == 1 && item.reps <= 6) {
+                        // 模式 1：硬核力量模式 (只看 6 次以内的大重量)
+                        shouldInclude = true;
+                        current1Rm = item.weight * (36.0 / (37.0 - item.reps));
+                    }
+                    else if (currentRadarMode == 2 && item.reps >= 10 && item.reps <= 30) {
+                        // 模式 2：肌肉耐力模式 (只看 10次以上的记录)
+                        shouldInclude = true;
+                        // ⭐ 现实补丁：高次数采用 Epley Formula，防止 Brzycki 公式分母崩溃 (Divide by Zero 风险)
+                        current1Rm = item.weight * (1.0 + item.reps / 30.0);
+                    }
+                }
+
+                // 只有通过了上述漏斗的数据，才允许参与雷达图的绘制
+                if (shouldInclude) {
                     double previousMax = max1RmMap.containsKey(name) ? max1RmMap.get(name) : 0.0;
 
                     if (current1Rm > previousMax) {
@@ -177,7 +242,33 @@ public class StatsActivity extends AppCompatActivity {
             float fArms = Math.min(100f, (float)maxArmsScore);
             float fCore = Math.min(100f, (float)maxCoreScore);
 
+            // 只在这里定义替身快照
+            final int finalTotalValidSets = totalValidSets;
+            final int finalCountStrength = countStrength;
+            final int finalCountHypertrophy = countHypertrophy;
+            final int finalCountEndurance = countEndurance;
+
             runOnUiThread(() -> {
+                // 内部全面使用 final 替身变量
+                if (finalTotalValidSets > 0) {
+                    float pctStrength = (finalCountStrength * 100f) / finalTotalValidSets;
+                    float pctHypertrophy = (finalCountHypertrophy * 100f) / finalTotalValidSets;
+                    float pctEndurance = (finalCountEndurance * 100f) / finalTotalValidSets;
+
+                    // 动态修改 LinearLayout 的 layout_weight
+                    ((android.widget.LinearLayout.LayoutParams) barStrength.getLayoutParams()).weight = Math.max(0.01f, pctStrength);
+                    ((android.widget.LinearLayout.LayoutParams) barHypertrophy.getLayoutParams()).weight = Math.max(0.01f, pctHypertrophy);
+                    ((android.widget.LinearLayout.LayoutParams) barEndurance.getLayoutParams()).weight = Math.max(0.01f, pctEndurance);
+
+                    // 请求重绘
+                    barStrength.requestLayout();
+
+                    // 更新底部文字
+                    tvStrengthPct.setText(String.format("绝对力量\n%.0f%%", pctStrength));
+                    tvHypertrophyPct.setText(String.format("肌肥大\n%.0f%%", pctHypertrophy));
+                    tvEndurancePct.setText(String.format("肌肉耐力\n%.0f%%", pctEndurance));
+                }
+
                 ArrayList<RadarEntry> entries = new ArrayList<>();
                 entries.add(new RadarEntry(fChest));
                 entries.add(new RadarEntry(fBack));
@@ -186,22 +277,61 @@ public class StatsActivity extends AppCompatActivity {
                 entries.add(new RadarEntry(fArms));
                 entries.add(new RadarEntry(fCore));
 
-                RadarDataSet set = new RadarDataSet(entries, "肌肉均衡分数");
-                set.setColor(Color.parseColor("#00897B"));
-                set.setFillColor(Color.parseColor("#80CBC4"));
-                set.setDrawFilled(true);
-                set.setFillAlpha(120);
-                set.setLineWidth(2f);
-                set.setDrawHighlightCircleEnabled(true);
-                set.setDrawHighlightIndicators(false);
+                // ⭐ 极客细节：强制锁定 Y 轴的物理极值
+                com.github.mikephil.charting.components.YAxis yAxis = radarChart.getYAxis();
+                yAxis.setAxisMinimum(0f);
+                yAxis.setAxisMaximum(100f);
 
-                RadarData data = new RadarData(set);
-                data.setValueTextSize(8f);
-                data.setDrawValues(true);
-                data.setValueTextColor(Color.parseColor("#212121"));
-                radarChart.setData(data);
-                radarChart.animateXY(1000, 1000);
-                radarChart.invalidate();
+                // ⭐ 核心架构升级：内存复用模式 (In-place Update)
+                if (radarChart.getData() != null && radarChart.getData().getDataSetCount() > 0) {
+                    // 如果图表已经存在，直接提取现有图层，只替换数据
+                    RadarDataSet set = (RadarDataSet) radarChart.getData().getDataSetByIndex(0);
+                    set.setValues(entries);
+
+                    // 动态变色
+                    if (currentRadarMode == 1) {
+                        set.setColor(Color.parseColor("#E53935"));
+                        set.setFillColor(Color.parseColor("#EF9A9A"));
+                    } else if (currentRadarMode == 2) {
+                        set.setColor(Color.parseColor("#43A047"));
+                        set.setFillColor(Color.parseColor("#A5D6A7"));
+                    } else {
+                        set.setColor(Color.parseColor("#00897B"));
+                        set.setFillColor(Color.parseColor("#80CBC4"));
+                    }
+
+                    radarChart.getData().notifyDataChanged();
+                    radarChart.notifyDataSetChanged();
+                    // ⭐ 新增：压缩动画时间到 400 毫秒 (snappy 模式)
+                    radarChart.animateXY(400, 400);
+                } else {
+                    // 只有第一次打开页面时，才会完整创建图表
+                    RadarDataSet set = new RadarDataSet(entries, "肌肉均衡分数");
+                    if (currentRadarMode == 1) {
+                        set.setColor(Color.parseColor("#E53935"));
+                        set.setFillColor(Color.parseColor("#EF9A9A"));
+                    } else if (currentRadarMode == 2) {
+                        set.setColor(Color.parseColor("#43A047"));
+                        set.setFillColor(Color.parseColor("#A5D6A7"));
+                    } else {
+                        set.setColor(Color.parseColor("#00897B"));
+                        set.setFillColor(Color.parseColor("#80CBC4"));
+                    }
+                    set.setDrawFilled(true);
+                    set.setFillAlpha(120);
+                    set.setLineWidth(2f);
+                    set.setDrawHighlightCircleEnabled(true);
+                    set.setDrawHighlightIndicators(false);
+
+                    RadarData data = new RadarData(set);
+                    data.setValueTextSize(8f);
+                    data.setDrawValues(true);
+                    data.setValueTextColor(Color.parseColor("#212121"));
+
+                    radarChart.setData(data);
+                    // ⭐ 新增：第一张图表也使用 400 毫秒动画
+                    radarChart.animateXY(400, 400);
+                }
 
                 StatsAdapter adapter = new StatsAdapter(nameList, groupedMap, max1RmMap, corrected1RmMap, apeIndex);
                 recyclerView.setAdapter(adapter);

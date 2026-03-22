@@ -5,7 +5,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
-import android.os.Build; // 【新增】用于处理 StateListAnimator
+import android.os.Build;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -98,25 +98,22 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         boolean isGhost = exercise.getBaseId() == -1;
 
         // ============================================================
-        // 【核心修复】全局强制去阴影、去点击浮动效果
-        // 无论什么卡片，先归零，防止 Java 代码覆盖 XML 设置
+        // 全局强制去阴影、去点击浮动效果
         // ============================================================
         holder.cardNormal.setCardElevation(0f);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             holder.cardNormal.setElevation(0f);
-            holder.cardNormal.setStateListAnimator(null); // 彻底杀掉阴影动画
+            holder.cardNormal.setStateListAnimator(null);
         }
-        // ============================================================
 
         if (isGhost) {
-            // >>> 幽灵卡
             holder.cardNormal.setAlpha(0.5f);
             holder.name.setText("点击输入动作名称...");
             holder.name.setTextColor(Color.GRAY);
             holder.name.setTypeface(null, android.graphics.Typeface.ITALIC);
 
             holder.cardNormal.setCardBackgroundColor(Color.WHITE);
-            holder.cardNormal.setStrokeWidth(0); // 无边框
+            holder.cardNormal.setStrokeWidth(0);
             holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
 
             holder.btnPin.setVisibility(View.GONE);
@@ -124,13 +121,15 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             holder.layoutSets.setAlpha(0.3f);
             holder.layoutReps.setAlpha(0.3f);
 
+            // ⭐ 隐藏幽灵卡片的徽章
+            if (holder.tvCategoryBadge != null) holder.tvCategoryBadge.setVisibility(View.GONE);
+
             holder.itemView.setOnClickListener(v -> listener.onRename(exercise));
             holder.itemView.setOnLongClickListener(null);
             holder.itemView.setOnTouchListener(null);
             if (holder.dragHandle != null) holder.dragHandle.setOnTouchListener(null);
 
         } else {
-            // >>> 正常卡片
             holder.cardNormal.setAlpha(1.0f);
             holder.name.setTypeface(null, android.graphics.Typeface.BOLD);
             holder.btnPin.setVisibility(View.VISIBLE);
@@ -145,21 +144,16 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             int textColorSecondary;
 
             if (isPermanent) {
-                // === A. 计划内动作 ===
                 textColorPrimary = context.getResources().getColor(R.color.flat_text_primary);
                 textColorSecondary = context.getResources().getColor(R.color.flat_text_secondary);
                 holder.btnPin.setImageResource(R.drawable.ic_pin_filled);
                 holder.btnPin.setColorFilter(context.getResources().getColor(R.color.flat_accent), PorterDuff.Mode.SRC_IN);
 
                 holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
-
-                // 【修复】去掉了原来的 setCardElevation(4f) 和 setStrokeWidth(3)
                 holder.cardNormal.setCardBackgroundColor(Color.WHITE);
                 holder.cardNormal.setStrokeColor(Color.TRANSPARENT);
-                holder.cardNormal.setStrokeWidth(0); // 强制无边框，扁平化
-
+                holder.cardNormal.setStrokeWidth(0);
             } else {
-                // === B. 临时动作 ===
                 textColorPrimary = Color.parseColor("#90A4AE");
                 textColorSecondary = Color.parseColor("#B0BEC5");
                 holder.btnPin.setImageResource(R.drawable.ic_pin_outline);
@@ -167,7 +161,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
                 holder.cardNormal.setCardBackgroundColor(Color.TRANSPARENT);
                 holder.cardNormal.setStrokeWidth(0);
-                // 临时动作保留虚线边框背景 (Visual hint)
                 holder.itemView.findViewById(R.id.normalLayout).setBackgroundResource(R.drawable.bg_dashed_border);
             }
 
@@ -178,20 +171,50 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             holder.unit.setTextColor(textColorSecondary);
 
             if (exercise.isCompleted()) {
-                // === C. 已完成状态 ===
                 holder.itemView.findViewById(R.id.normalLayout).setBackground(null);
-                holder.cardNormal.setCardBackgroundColor(Color.parseColor("#E0F2F1")); // 浅绿色背景
-
-                // 【修复】去掉了原来的 setCardElevation(2f)
+                holder.cardNormal.setCardBackgroundColor(Color.parseColor("#E0F2F1"));
                 holder.cardNormal.setStrokeWidth(0);
                 holder.name.setAlpha(0.6f);
                 setStrikeThrough(holder.name, true);
+
+                // ⭐ 完成状态下，徽章也变暗一点
+                if (holder.tvCategoryBadge != null) holder.tvCategoryBadge.setAlpha(0.6f);
             } else {
                 holder.name.setAlpha(1.0f);
                 setStrikeThrough(holder.name, false);
+                if (holder.tvCategoryBadge != null) holder.tvCategoryBadge.setAlpha(1.0f);
             }
 
-            // 1. 触摸监听
+            // --- ⭐ 核心绘制：动作卡片上的彩色分类徽章 ---
+            if (holder.tvCategoryBadge != null) {
+                holder.tvCategoryBadge.setVisibility(View.VISIBLE);
+                String rawCategory = exercise.category != null ? exercise.category : "Other";
+                String displayName;
+                int badgeColor;
+
+                switch (rawCategory) {
+                    case "Chest": displayName = "胸部"; badgeColor = Color.parseColor("#1E88E5"); break;
+                    case "Back": displayName = "背部"; badgeColor = Color.parseColor("#43A047"); break;
+                    case "Legs&Glutes": displayName = "腿臀"; badgeColor = Color.parseColor("#F4511E"); break;
+                    case "Shoulders": displayName = "肩部"; badgeColor = Color.parseColor("#8E24AA"); break;
+                    case "Arms": displayName = "手臂"; badgeColor = Color.parseColor("#E53935"); break;
+                    case "Core": displayName = "核心"; badgeColor = Color.parseColor("#FDD835");
+                        holder.tvCategoryBadge.setTextColor(Color.parseColor("#424242")); break;
+                    default: displayName = "其他"; badgeColor = Color.parseColor("#9E9E9E");
+                        holder.tvCategoryBadge.setTextColor(Color.WHITE); break;
+                }
+
+                if (!rawCategory.equals("Core")) holder.tvCategoryBadge.setTextColor(Color.WHITE);
+                holder.tvCategoryBadge.setText(displayName);
+
+                android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+                shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                // 边角稍微圆滑一点 (6dp)
+                shape.setCornerRadius(6f * context.getResources().getDisplayMetrics().density);
+                shape.setColor(badgeColor);
+                holder.tvCategoryBadge.setBackground(shape);
+            }
+
             holder.itemView.setOnTouchListener((v, event) -> {
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     holder.lastTouchX = event.getX();
@@ -200,7 +223,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 return false;
             });
 
-            // 2. 点击
             holder.itemView.setOnClickListener(v -> {
                 exercise.exercise.isCompleted = !exercise.exercise.isCompleted;
                 listener.onUpdate(exercise);
@@ -208,7 +230,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 notifyItemChanged(position);
             });
 
-            // 3. 长按
             holder.itemView.setOnLongClickListener(v -> {
                 holder.popupAnchor.setX(holder.lastTouchX);
                 holder.popupAnchor.setY(holder.lastTouchY);
@@ -216,7 +237,6 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
                 return true;
             });
 
-            // 4. 拖拽
             if (holder.dragHandle != null) {
                 holder.dragHandle.setOnTouchListener((v, event) -> {
                     if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
@@ -227,7 +247,7 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             }
         }
 
-        // --- 通用数据填充 ---
+        // 通用数据填充
         holder.name.setText(exercise.exerciseName);
         holder.btnPin.setOnClickListener(v -> listener.onTogglePin(exercise));
 
@@ -277,14 +297,14 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     private void showPopupMenu(View anchorView, ExerciseWithDetail exercise) {
         PopupMenu popup = new PopupMenu(context, anchorView, Gravity.NO_GRAVITY);
-        popup.getMenu().add(0, 1, 0, "修改名称");
-        popup.getMenu().add(0, 2, 1, "删除动作");
+        popup.getMenu().add(0, 1, 0, "修改动作"); // 改个名字更贴切
+        popup.getMenu().add(0, 2, 1, "删除卡片");
         popup.setOnMenuItemClickListener(item -> {
             String title = item.getTitle().toString();
-            if (title.equals("删除动作")) {
+            if (title.equals("删除卡片")) {
                 listener.onDelete(exercise);
                 return true;
-            } else if (title.equals("修改名称")) {
+            } else if (title.equals("修改动作")) {
                 listener.onRename(exercise);
                 return true;
             }
@@ -356,12 +376,11 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
         FooterViewHolder(View itemView) { super(itemView); }
     }
 
-    // 必须加 public，这样 ui.workout 包里的 Fragment 才能访问
     public static class ItemViewHolder extends RecyclerView.ViewHolder {
 
-        // 所有成员变量必须是 public，否则外部无法访问 (如 holder.cardNormal)
         public com.google.android.material.card.MaterialCardView cardNormal;
-        public TextView name, sets, reps, unit;
+        // ⭐ 新增：绑定徽章控件
+        public TextView name, sets, reps, unit, tvCategoryBadge;
         public LinearLayout layoutSets, layoutReps;
         public EditText weight;
         public ImageView btnPin;
@@ -378,6 +397,8 @@ public class ExerciseRecyclerAdapter extends RecyclerView.Adapter<RecyclerView.V
             cardNormal = itemView.findViewById(R.id.cardNormal);
             popupAnchor = itemView.findViewById(R.id.popupAnchor);
             name = itemView.findViewById(R.id.tvExerciseName);
+            // ⭐ 映射徽章的 ID
+            tvCategoryBadge = itemView.findViewById(R.id.tvCategoryBadge);
             layoutSets = itemView.findViewById(R.id.layoutSets);
             layoutReps = itemView.findViewById(R.id.layoutReps);
             sets = itemView.findViewById(R.id.tvSets);
