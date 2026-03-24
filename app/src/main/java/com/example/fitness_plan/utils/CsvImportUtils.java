@@ -81,25 +81,31 @@ public class CsvImportUtils {
                     int sets = Integer.parseInt(tokens[4].trim());
                     int reps = Integer.parseInt(tokens[5].trim());
 
+                    // ==========================================
                     // 4. Get or create exercise base
+                    // ⭐ 核心修复 1：把 baseId 的声明提到 if 结界外面，解决作用域问题
+                    // ==========================================
+                    long currentBaseId;
                     ExerciseBaseEntity base = workoutDao.getExerciseBaseByName(name);
                     if (base == null) {
                         base = new ExerciseBaseEntity(name, "kg", "其他");
-                        long baseId = workoutDao.insertExerciseBase(base);
-                        base.baseId = baseId;
+                        currentBaseId = workoutDao.insertExerciseBase(base);
+                    } else {
+                        currentBaseId = base.baseId; // 如果库里有，就把它的 ID 抽出来
                     }
 
+                    // ==========================================
                     // 5. 构建对象
-                    // 需要生成一个新的展示用日期字符串
+                    // ⭐ 核心修复 2：变量名严格对齐你上面自己定义的变量
+                    // ==========================================
                     String displayDateStr = displayDateFormat.format(new java.util.Date(date));
 
-                    // 参数顺序严格匹配 HistoryEntity:
-                    // long date, String dateStr, String workoutName, long baseId, double weight, int reps, int sets
                     HistoryEntity entity = new HistoryEntity(
                             date,
-                            displayDateStr,
-                            sessionType,
-                            base.baseId,
+                            displayDateStr, // 修正：接上你在第 5 步第一行定义的名字
+                            "历史导入",
+                            sessionType,    // 修正：接上你在第 3 步定义的名字
+                            currentBaseId,  // 修正：接上刚刚打破结界提取出来的 ID
                             weight,
                             reps,
                             sets

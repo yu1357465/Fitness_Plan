@@ -195,4 +195,28 @@ public interface WorkoutDao {
     // 3. 更新动作信息
     @Update
     void updateExerciseBase(ExerciseBaseEntity exercise);
+
+    // ==========================================
+    // V2.1 P2 级核心：第二大脑记忆雷达
+    // ==========================================
+    @androidx.room.Query("SELECT * FROM history_table WHERE baseId = :baseId ORDER BY date DESC LIMIT 1")
+    HistoryEntity getLatestHistoryByBaseId(long baseId);
+
+    // ==========================================
+    //  V2.1 封神版新增：核心结算原子操作 (P1 级防呆)
+    // ==========================================
+
+    /**
+     * 事务说明：确保“转存历史”和“清空首页”必须同时成功。
+     * 如果期间发生断电或崩溃，数据将自动回滚，杜绝“数据幽灵”。
+     */
+    @androidx.room.Transaction
+    default void finishWorkoutAtomic(List<HistoryEntity> histories) {
+        // 1. 将结算的动作列表逐个写入历史表
+        for (HistoryEntity history : histories) {
+            insertHistory(history);
+        }
+        // 2. 彻底清空今日的训练台
+        clearCurrentPlan();
+    }
 }

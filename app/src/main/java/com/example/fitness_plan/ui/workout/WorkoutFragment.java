@@ -24,15 +24,12 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.fitness_plan.ExerciseRecyclerAdapter;
-import com.example.fitness_plan.HistoryActivity;
 import com.example.fitness_plan.PlanListActivity;
 import com.example.fitness_plan.R;
 import com.example.fitness_plan.SettingsActivity;
 import com.example.fitness_plan.StatsActivity;
-import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.AppDatabase;
 import com.example.fitness_plan.data.EntityNameCache;
 import com.example.fitness_plan.data.ExerciseBaseEntity;
@@ -129,7 +126,7 @@ public class WorkoutFragment extends Fragment {
                 startActivity(new Intent(requireContext(), SettingsActivity.class)));
 
         // ⭐ 终极重构：将右下角按钮直接连通硬核数据分析中心 (StatsActivity)
-        view.findViewById(R.id.btnHistory).setOnClickListener(v ->
+        view.findViewById(R.id.btnStats).setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), StatsActivity.class)));
 
         view.findViewById(R.id.planSelectionContainer).setOnClickListener(v -> {
@@ -634,7 +631,16 @@ public class WorkoutFragment extends Fragment {
                                         }
 
                                         int sortOrder = workoutDao.getAllExercises().size();
-                                        ExerciseEntity exercise = new ExerciseEntity(base.baseId, 20.0, 4, 12, false);
+                                        // ==========================================
+                                        // ⭐ 核心注入 1：召唤第二大脑，打捞最后一次的记忆
+                                        // ==========================================
+                                        HistoryEntity lastRecord = workoutDao.getLatestHistoryByBaseId(base.baseId);
+
+                                        double initWeight = (lastRecord != null) ? lastRecord.weight : 20.0;
+                                        int initSets = (lastRecord != null) ? lastRecord.sets : 4;
+                                        int initReps = (lastRecord != null) ? lastRecord.reps : 12;
+
+                                        ExerciseEntity exercise = new ExerciseEntity(base.baseId, initWeight, initSets, initReps, false);
                                         exercise.sortOrder = sortOrder;
 
                                         if (defaultAddToPlan) {
@@ -779,7 +785,11 @@ public class WorkoutFragment extends Fragment {
                 long now = System.currentTimeMillis();
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日", Locale.CHINA);
                 String dateStr = sdf.format(new Date(now));
+                PlanEntity activePlan = workoutDao.getActivePlan();
+                String actualPlanName = (activePlan != null) ? activePlan.planName : "自由训练";
+                // 原来的 currentPlanName 其实存的是训练日主题
                 String currentDayName = (currentPlanName != null) ? currentPlanName : "临时训练";
+
                 int archivedCount = 0;
 
                 if (autoMarkAll) {
@@ -791,13 +801,21 @@ public class WorkoutFragment extends Fragment {
                     }
                 }
 
+                // ==========================================
+                // ⚠️ 核心修改区：将分散写入改为内存收集 (In-memory buffering)
+                // ==========================================
+                List<HistoryEntity> historiesToSave = new ArrayList<>(); // 新建一个内存篮子
+
                 for (ExerciseWithDetail ex : snapshotPlan) {
                     if (ex.isCompleted()) {
                         HistoryEntity history = new HistoryEntity(
-                                now, dateStr, currentDayName,
+                                now, dateStr,
+                                actualPlanName,  // ⭐ 第 3 个参数：填入刚刚查出来的真正的“经典推拉腿(PPL)”
+                                currentDayName,  // ⭐ 第 4 个参数：依然是“推力日”
                                 ex.getBaseId(), ex.getWeight(), ex.getReps(), ex.getSets()
                         );
-                        workoutDao.insertHistory(history);
+                        // [新代码]：先全部装进内存里的篮子
+                        historiesToSave.add(history);
                         archivedCount++;
                     }
                 }
@@ -813,9 +831,10 @@ public class WorkoutFragment extends Fragment {
                 }
 
                 final int finalCount = archivedCount;
-                workoutDao.clearCurrentPlan();
+                // [新代码]：将装满数据的篮子一次性交给 Dao 层的原子结界 (Atomic Transaction)
+                workoutDao.finishWorkoutAtomic(historiesToSave);
 
-                PlanEntity activePlan = workoutDao.getActivePlan();
+                activePlan = workoutDao.getActivePlan();
                 if (activePlan != null) {
                     List<String> days = workoutDao.getDayNamesByPlanId(activePlan.planId);
                     if (days != null && !days.isEmpty()) {
@@ -828,8 +847,15 @@ public class WorkoutFragment extends Fragment {
                         List<TemplateEntity> templates = workoutDao.getTemplatesByPlanAndDay(activePlan.planId, nextDayName);
 
                         for (TemplateEntity t : templates) {
-                            ExerciseEntity e = new ExerciseEntity(t.baseId, t.defaultWeight, t.defaultSets, t.defaultReps, false);
+                            HistoryEntity lastRecord = workoutDao.getLatestHistoryByBaseId(t.baseId);
+
+                            double initWeight = (lastRecord != null) ? lastRecord.weight : t.defaultWeight;
+                            int initSets = (lastRecord != null) ? lastRecord.sets : t.defaultSets;
+                            int initReps = (lastRecord != null) ? lastRecord.reps : t.defaultReps;
+
+                            ExerciseEntity e = new ExerciseEntity(t.baseId, initWeight, initSets, initReps, false);
                             e.sortOrder = t.sortOrder;
+                            e.color = "#FFFFFF"; // 如果是在 performFinishWorkout 里，可能没有这一行，如果有就保留
                             workoutDao.insert(e);
                         }
                     }
@@ -948,9 +974,15 @@ public class WorkoutFragment extends Fragment {
             workoutDao.clearAllExercises();
             List<TemplateEntity> templates = workoutDao.getTemplatesByPlanAndDay(plan.planId, dayName);
             for (TemplateEntity t : templates) {
-                ExerciseEntity e = new ExerciseEntity(t.baseId, t.defaultWeight, t.defaultSets, t.defaultReps, false);
+                HistoryEntity lastRecord = workoutDao.getLatestHistoryByBaseId(t.baseId);
+
+                double initWeight = (lastRecord != null) ? lastRecord.weight : t.defaultWeight;
+                int initSets = (lastRecord != null) ? lastRecord.sets : t.defaultSets;
+                int initReps = (lastRecord != null) ? lastRecord.reps : t.defaultReps;
+
+                ExerciseEntity e = new ExerciseEntity(t.baseId, initWeight, initSets, initReps, false);
                 e.sortOrder = t.sortOrder;
-                e.color = "#FFFFFF";
+                e.color = "#FFFFFF"; // 如果是在 performFinishWorkout 里，可能没有这一行，如果有就保留
                 workoutDao.insert(e);
             }
             loadDataFromDatabase();
@@ -970,9 +1002,15 @@ public class WorkoutFragment extends Fragment {
                     workoutDao.clearAllExercises();
                     List<TemplateEntity> templates = workoutDao.getTemplatesByPlanAndDay(newPlan.planId, days.get(0));
                     for (TemplateEntity t : templates) {
-                        ExerciseEntity e = new ExerciseEntity(t.baseId, t.defaultWeight, t.defaultSets, t.defaultReps, false);
+                        HistoryEntity lastRecord = workoutDao.getLatestHistoryByBaseId(t.baseId);
+
+                        double initWeight = (lastRecord != null) ? lastRecord.weight : t.defaultWeight;
+                        int initSets = (lastRecord != null) ? lastRecord.sets : t.defaultSets;
+                        int initReps = (lastRecord != null) ? lastRecord.reps : t.defaultReps;
+
+                        ExerciseEntity e = new ExerciseEntity(t.baseId, initWeight, initSets, initReps, false);
                         e.sortOrder = t.sortOrder;
-                        e.color = "#FFFFFF";
+                        e.color = "#FFFFFF"; // 如果是在 performFinishWorkout 里，可能没有这一行，如果有就保留
                         workoutDao.insert(e);
                     }
                 }

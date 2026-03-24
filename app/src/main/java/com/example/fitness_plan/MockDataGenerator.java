@@ -36,18 +36,13 @@ public class MockDataGenerator {
             long now = System.currentTimeMillis();
             long dayMs = 24L * 60 * 60 * 1000L;
 
-            // 胸部 (Chest): 绝对力量型选手 (5次大重量)
-            dao.insertHistory(new HistoryEntity(now - 3 * dayMs, "03-18", "推力日", baseIds[0], 100.0, 5, 5));
-            // 背部 (Back): 均衡型增肌 (10次中等重量)
-            dao.insertHistory(new HistoryEntity(now - 2 * dayMs, "03-19", "拉力日", baseIds[1], 70.0, 10, 4));
-            // 腿部 (Legs): 新手水平，偏向耐力 (15次轻重量)
-            dao.insertHistory(new HistoryEntity(now - dayMs, "03-20", "腿部日", baseIds[2], 60.0, 15, 4));
-            // 肩部 (Shoulders): 标准增肌
-            dao.insertHistory(new HistoryEntity(now, "03-21", "推力日", baseIds[3], 45.0, 8, 4));
-            // 手臂 (Arms): 极高频耐力训练 (20次)
-            dao.insertHistory(new HistoryEntity(now, "03-21", "拉力日", baseIds[4], 15.0, 20, 3));
-            // 核心 (Core): 极高频耐力训练 (25次)
-            dao.insertHistory(new HistoryEntity(now, "03-21", "核心日", baseIds[5], 0.0, 25, 4));
+            // [改动后的代码]：在日期和训练日主题之间，统一插入 "模拟计划" 这个 planName
+            dao.insertHistory(new HistoryEntity(now - 3 * dayMs, "03-18", "模拟计划", "推力日", baseIds[0], 100.0, 5, 5));
+            dao.insertHistory(new HistoryEntity(now - 2 * dayMs, "03-19", "模拟计划", "拉力日", baseIds[1], 70.0, 10, 4));
+            dao.insertHistory(new HistoryEntity(now - dayMs, "03-20", "模拟计划", "腿部日", baseIds[2], 60.0, 15, 4));
+            dao.insertHistory(new HistoryEntity(now, "03-21", "模拟计划", "推力日", baseIds[3], 45.0, 8, 4));
+            dao.insertHistory(new HistoryEntity(now, "03-21", "模拟计划", "拉力日", baseIds[4], 15.0, 20, 3));
+            dao.insertHistory(new HistoryEntity(now, "03-21", "模拟计划", "核心日", baseIds[5], 0.0, 25, 4));
 
             // 通知主线程注入完毕
             if (onComplete != null) {

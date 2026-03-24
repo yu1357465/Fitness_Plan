@@ -142,15 +142,15 @@
             app:cornerRadius="16dp"
             app:elevation="0dp"
             app:layout_constraintStart_toEndOf="@+id/btnSettings"
-            app:layout_constraintEnd_toStartOf="@+id/btnHistory"
+            app:layout_constraintEnd_toStartOf="@+id/btnStats"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
         <ImageView
-            android:id="@+id/btnHistory"
+            android:id="@+id/btnStats"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:src="@android:drawable/ic_menu_recent_history"
+            android:src="@drawable/ic_analytics"
             app:tint="#B0BEC5"
             android:padding="12dp"
             android:background="?attr/selectableItemBackgroundBorderless"

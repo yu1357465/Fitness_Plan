@@ -196,7 +196,7 @@ public class SettingsActivity extends AppCompatActivity {
                 List<HistoryEntity> list = workoutDao.getAllHistory();
 
                 // 使用新的 CsvExportUtils.generateCsvContent 方法
-                String csvContent = CsvExportUtils.generateCsvContent(list);
+                String csvContent = CsvExportUtils.generateCsvContent(list, workoutDao);
 
                 // 静默保存
                 Uri savedUri = MediaStoreUtils.saveReportToDownloads(this, fileName, csvContent);

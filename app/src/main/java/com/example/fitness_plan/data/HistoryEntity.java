@@ -26,6 +26,8 @@ public class HistoryEntity {
     public long date;           // 时间戳
     public String dateStr;      // 显示用日期，如 "2023年10月27日"
     public String workoutName;  // 计划名，如 "推力日"
+    // 【V2.1 路线A新增】记录产生此记录时的计划快照
+    public String planName;
 
     public long baseId;         // 【重构】引用动作库的ID
     public double weight;
@@ -33,9 +35,10 @@ public class HistoryEntity {
     public int sets;
 
     // 【重构】新构造函数
-    public HistoryEntity(long date, String dateStr, String workoutName, long baseId, double weight, int reps, int sets) {
+    public HistoryEntity(long date, String dateStr, String planName, String workoutName, long baseId, double weight, int reps, int sets) {
         this.date = date;
         this.dateStr = dateStr;
+        this.planName = planName;
         this.workoutName = workoutName;
         this.baseId = baseId;
         this.weight = weight;

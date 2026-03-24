@@ -184,7 +184,13 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.HistoryV
             String exerciseName = cache.getExerciseName(ex.baseId);
 
             holder.tvName.setText(exerciseName);
-            holder.tvDetails.setText("完成: " + ex.weight + "kg × " + ex.reps + "次 (" + ex.sets + "组)");
+
+            // ==========================================
+            // ⭐ 核心修复：统一为 "重量 | 组数 | 次数" 格式，消除视觉跳跃
+            // 如果是整数则抹除小数点后缀，更加清爽
+            // ==========================================
+            String weightStr = (ex.weight % 1 == 0) ? String.valueOf((int)ex.weight) : String.valueOf(ex.weight);
+            holder.tvDetails.setText(weightStr + " kg  |  " + ex.sets + " 组  |  " + ex.reps + " 次");
 
             // ⭐ 核心绘制：彩色分类徽章
             if (holder.tvCategoryBadge != null) {
@@ -233,7 +239,6 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.HistoryV
                 super(itemView);
                 tvName = itemView.findViewById(R.id.tvExerciseName);
                 tvDetails = itemView.findViewById(R.id.tvExerciseDetails);
-                // 绑定刚刚在 XML 里加的徽章控件
                 tvCategoryBadge = itemView.findViewById(R.id.tvCategoryBadge);
             }
         }
